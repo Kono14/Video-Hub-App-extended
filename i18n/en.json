@@ -391,6 +391,8 @@
     "playlistRemoveAll": "remove all videos from playlist",
     "playlistShowingOnly": "showing only playlist",
     "recentlyOpened": "Recently opened hubs:",
+    "recursive": "Recursive",
+    "recursiveMoreInfo": "When checked, matches videos in subfolders too, not just the exact folder",
     "regex": "regex",
     "scanInProgress": "Scanning in progress",
     "similarTo": "and similar to:",
