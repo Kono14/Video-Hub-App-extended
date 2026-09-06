@@ -396,6 +396,25 @@ export class HomeComponent implements OnInit, AfterViewInit {
     }
   }
 
+  /**
+   * Listen for the 4th mouse button (the `back` thumb button)
+   * and trigger the same action as clicking the `UP` folder
+   */
+  @HostListener('document:mousedown', ['$event'])
+  handleMouseBackButton(event: MouseEvent): void {
+    if (event.button !== 3) { // 3 === 4th mouse button (`back`)
+      return;
+    }
+
+    event.preventDefault(); // prevent Chromium from navigating back in history
+
+    if (this.wizard.showWizard || this.settingsModalOpen) {
+      return;
+    }
+
+    this.goUpOneFolder();
+  }
+
   @HostListener('window:resize')
   handleResizeEvent() {
     this.debounceUpdateMax();
@@ -1450,6 +1469,19 @@ export class HomeComponent implements OnInit, AfterViewInit {
     this.folderViewNavigationPath = filter;
 
     this.scrollAppropriately(filter);
+  }
+
+  /**
+   * Navigate one folder up - exactly what clicking the `UP` folder does
+   */
+  goUpOneFolder(): void {
+    if (!this.folderViewNavigationPath) {
+      return; // already at the root
+    }
+
+    const parentPath: string = this.folderViewNavigationPath.substring(0, this.folderViewNavigationPath.lastIndexOf('/'));
+
+    this.handleFolderIconClicked(parentPath);
   }
 
   /**
