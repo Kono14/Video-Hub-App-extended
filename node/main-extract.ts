@@ -748,6 +748,13 @@ function spawn_ffmpeg_and_run(
 
     const ffmpeg_process = spawn(ffmpegPath, args);
 
+    // Several `ffmpeg` at once, each on every core, take all of the CPU -- the rest of the computer stuttered
+    // while a large import ran. Below normal priority they give way to whatever else needs the CPU
+    // and are just as fast when nothing does.
+    try {
+      os.setPriority(ffmpeg_process.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+    } catch {} // did not start, or has already exited
+
     let timedOut = false;
 
     const killProcessTimeout = setTimeout(() => {
