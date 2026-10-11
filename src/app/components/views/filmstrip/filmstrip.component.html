@@ -3,6 +3,85 @@
   class="meta-container"
   [ngClass]="{ 'compact-margins' : compactView() }"
 >
+
+@if (video().cleanName === '*FOLDER*') {
+
+  <!-- ========================= FOLDER TEMPLATE ================================================= -->
+
+  <div
+    (click)="videoClick.emit({ mouseEvent: $event })"
+    class="filmstrip-container folder"
+    [ngStyle]="{ height: imgHeight() + 'px' }"
+  >
+
+  @if (video().fileName === '*UP*') {
+
+    <div class="up-icon" [ngStyle]="{ width: imgHeight() * 0.5 + 'px' }">
+      <app-icon [icon]="'icon-chevron-left'" />
+    </div>
+
+  } @else {
+
+    @if (folderThumbPaths().length === 1) {
+
+      <!-- show the filmstrip if there is only one video inside the folder -->
+      <div
+        class="folder-single"
+        [ngStyle]="{ 'background-image': 'url(' + fullFilePath + ')' }"
+      ></div>
+
+    } @else {
+
+      <!-- one screenshot from each of the first videos in the folder -->
+      <div class="folder-frames">
+        @for (thumbPath of folderThumbPaths(); track $index) {
+          <div
+            class="folder-frame"
+            [ngStyle]="{ 'background-image': 'url(' + thumbPath + ')' }"
+          ></div>
+        }
+      </div>
+
+    }
+
+    <div class="folder-icon">
+      <app-icon [icon]="'icon-folder-blank'" />
+      <div class="items-in-folder">{{ video().fileSizeDisplay | folderSizePipe }}</div>
+    </div>
+
+    @if (showMeta()) {
+      @if (compactView()) {
+        <div class="compact-meta" [ngClass]="{ 'compact-meta-larger': largerFont() }">
+          <div class="compact-meta-row">
+            <span class="compact-meta-item">{{ video().fileSize | fileSizePipe : true }}</span>
+            <span class="compact-meta-item">{{ video().duration | lengthPipe : 'folder' }}</span>
+          </div>
+          <span class="compact-meta-item compact-meta-title">{{ video().fileName }}</span>
+        </div>
+      } @else {
+        <span class="time">{{ video().duration | lengthPipe : 'folder' }}</span>
+        <span class="rez">{{ video().fileSize | fileSizePipe : true }}</span>
+      }
+    }
+
+  }
+
+  </div>
+
+  @if (showMeta() && !compactView() && video().fileName !== '*UP*') {
+    <span
+      [ngClass]="{ 'larger-font': largerFont() }"
+      [ngStyle]="{ color: darkMode() ? '#BBBBBB' : '#000000' }"
+      class="title"
+    >
+      {{ video().fileName }}
+    </span>
+  }
+
+} @else {
+
+  <!-- ========================= INDIVIDUAL FILE TEMPLATE ======================================== -->
+
   <div
     #filmstripHolder
     (mousemove)="updateFilmXoffset($event)"
@@ -38,27 +117,29 @@
     }
   </div>
 
-@if (video().selected) {
-  <app-icon class="selected" [icon]="'icon-show-more-info'" />
-}
+  @if (video().selected) {
+    <app-icon class="selected" [icon]="'icon-show-more-info'" />
+  }
 
-@if (showFavorites()) {
-  <app-icon
-    (click)="toggleHeart($event)"
-    class="heart"
-    [ngClass]="{ 'heart-lit' : video().stars === 5.5 }"
-    [icon]="'icon-heart'"
-   />
-}
+  @if (showFavorites()) {
+    <app-icon
+      (click)="toggleHeart($event)"
+      class="heart"
+      [ngClass]="{ 'heart-lit' : video().stars === 5.5 }"
+      [icon]="'icon-heart'"
+     />
+  }
 
-@if (showMeta() && !compactView()) {
-  <span
-    [ngClass]="{ 'larger-font': largerFont() }"
-    [ngStyle]="{ color: darkMode() ? '#BBBBBB' : '#000000' }"
-    class="title"
-  >
-    {{ video().cleanName }}
-  </span>
-}
+  @if (showMeta() && !compactView()) {
+    <span
+      [ngClass]="{ 'larger-font': largerFont() }"
+      [ngStyle]="{ color: darkMode() ? '#BBBBBB' : '#000000' }"
+      class="title"
+    >
+      {{ video().cleanName }}
+    </span>
+  }
+
+} <!-- end of the @else -- the INDIVIDUAL FILE TEMPLATE -->
 
 </div>

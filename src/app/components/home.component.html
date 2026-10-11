@@ -812,6 +812,7 @@
           'gallery-container-dark-mode': settingsButtons['darkMode'].toggled,
           'gallery-showing-breadcrumbs': settingsButtons['showFolders'].toggled
                                          && (appState.currentView === 'showThumbnails' ||
+                                             appState.currentView === 'showFilmstrip' ||
                                              appState.currentView === 'showFiles' ||
                                              appState.currentView === 'showClips')
         }"
@@ -910,9 +911,11 @@
 
                 | folderViewPipe : (settingsButtons['showFolders'].toggled)
                                    && (   appState.currentView === 'showThumbnails'
+                                       || appState.currentView === 'showFilmstrip'
                                        || appState.currentView === 'showFiles'
                                        || appState.currentView === 'showClips')
                                  : folderViewNavigationPath
+                                 : (appState.currentView === 'showFilmstrip' ? currentImgsPerRow + 1 : 4)
 
                 | sortingPipe : sortType : shuffleTheViewNow : (   settingsButtons['duplicateLength'].toggled
                                                                 || settingsButtons['duplicateSize'].toggled
@@ -974,7 +977,7 @@
     @if (appState.currentView === 'showFilmstrip') {
       @for (item of scroll.viewPortItems; track item.uuid) {
         <app-filmstrip-item
-          (videoClick)="handleClick($event, item)"
+          (videoClick)="(item.cleanName === '*FOLDER*') ? handleFolderIconClicked(item.partialPath) : handleClick($event, item)"
           (rightClick)="(item.cleanName === '*FOLDER*') ? doNothing() : rightMouseClicked($event.mouseEvent, $event.item)"
 
           (drop)="droppedSomethingOverVideo($event, item)"

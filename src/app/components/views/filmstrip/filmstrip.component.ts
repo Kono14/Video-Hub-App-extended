@@ -1,5 +1,5 @@
 import type { OnInit, ElementRef} from '@angular/core';
-import { Component, input, output, viewChild } from '@angular/core';
+import { Component, computed, input, output, viewChild } from '@angular/core';
 
 import { FilePathService } from '../file-path.service';
 
@@ -40,6 +40,13 @@ export class FilmstripComponent implements OnInit {
   readonly largerFont = input<boolean>();
   readonly showMeta = input<boolean>();
   readonly showFavorites = input<boolean>();
+
+  // a folder carries the hashes of several of its videos, separated by `:`
+  readonly folderThumbPaths = computed<string[]>(() => {
+    return this.video().hash.split(':').filter((hash) => hash).map((hash) => {
+      return this.filePathService.createFilePath(this.folderPath(), this.hubName(), 'thumbnails', hash);
+    });
+  });
 
   fullFilePath = '';
   filmXoffset = 0;

@@ -147,7 +147,7 @@
     "showFilmstripHint": "Filmstrip view",
     "showFoldersDescription": "Folders view",
     "showFoldersHint": "Show folders",
-    "showFoldersMoreInfo": "Only affects Thumbnails, Text, and Clips views",
+    "showFoldersMoreInfo": "Only affects Thumbnails, Filmstrip, Text, and Clips views",
     "showFreqDescription": "Word cloud",
     "showFreqHint": "Word cloud",
     "showFreqMoreInfo": "Show the Word cloud which shows the most frequent words in currently shown files",

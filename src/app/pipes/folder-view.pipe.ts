@@ -79,16 +79,17 @@ export class FolderViewPipe implements PipeTransform {
   }
 
   /**
-   * Takes ImageElement array and returns 4 hashes
+   * Takes ImageElement array and returns 4 hashes (or `numOfPreviews` if given)
    * separated by `:` so the folderView has something to show!
    * @param files
+   * @param numOfPreviews
    */
-  extractFourPreviewHashes(files: ImageElement[]): string {
+  extractFourPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
     let hashes = '';
-    if (files.length > 4 && this.settingsButtons['randomizeFoldersScreenshots'].toggled) {
-      hashes = this.extractRandomPreviewHashes(files);
+    if (files.length > numOfPreviews && this.settingsButtons['randomizeFoldersScreenshots'].toggled) {
+      hashes = this.extractRandomPreviewHashes(files, numOfPreviews);
     } else {
-      hashes = this.extractFirstFourPreviewHashes(files);
+      hashes = this.extractFirstFourPreviewHashes(files, numOfPreviews);
     }
     if (hashes.charAt(0) === ':') {
       hashes = hashes.slice(1);
@@ -96,9 +97,9 @@ export class FolderViewPipe implements PipeTransform {
     return hashes;
   }
 
-  extractFirstFourPreviewHashes(files: ImageElement[]): string {
+  extractFirstFourPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
     let hashes = '';
-    for (let n = 0; n < 4; n++) {
+    for (let n = 0; n < numOfPreviews; n++) {
       if (files[n]) {
         hashes += ':' + files[n].hash;
       } else {
@@ -108,9 +109,9 @@ export class FolderViewPipe implements PipeTransform {
     return hashes;
   }
 
-  extractRandomPreviewHashes(files: ImageElement[]): string {
+  extractRandomPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
     let hashes = '';
-    for (let index = 0; index < 4; index++) {
+    for (let index = 0; index < numOfPreviews; index++) {
       const randomIndex = Math.floor(Math.random() * files.length);
       hashes += ':' + files.splice(randomIndex, 1)[0].hash;
     }
@@ -135,8 +136,9 @@ export class FolderViewPipe implements PipeTransform {
    * @param finalArray
    * @param render      whether to insert folders
    * @param prefixPath  current folder in view (full path to CWD - "current working directory")
+   * @param numOfPreviews how many videos of a folder to show a screenshot of (the filmstrip view needs more than 4)
    */
-  transform(finalArray: ImageElement[], render: boolean, prefixPath?: string): ImageElement[] {
+  transform(finalArray: ImageElement[], render: boolean, prefixPath?: string, numOfPreviews: number = 4): ImageElement[] {
 
     if (render) {
 
@@ -236,7 +238,7 @@ export class FolderViewPipe implements PipeTransform {
           folderWithStuff.fileName        = key.replace('/', '');
           folderWithStuff.fileSize        = folderProperties.byteSize;
           folderWithStuff.fileSizeDisplay = value.length.toString(), // indicates the number of files in the folder!
-          folderWithStuff.hash            = this.extractFourPreviewHashes(value);
+          folderWithStuff.hash            = this.extractFourPreviewHashes(value, numOfPreviews);
           folderWithStuff.index           = -1, // always show at the top (but after the `UP` folder) in the default view
           folderWithStuff.lastPlayed      = folderProperties.lastPlayed;
           folderWithStuff.mtime           = folderProperties.mtime;
