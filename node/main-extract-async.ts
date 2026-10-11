@@ -47,9 +47,9 @@ let numberOfThumbsDeleted = 0;
 
 // =====================================================================================================================
 
-// Create maps where the value = 1 always.
 // It is faster to check if key exists than searching through an array.
-let alreadyInAngular: Map<string, 1> = new Map(); // full paths to videos we have metadata for in Angular
+// full paths to videos we have metadata for in Angular -- the value is the `inputSource` the video belongs to
+let alreadyInAngular: Map<string, number> = new Map();
 
 // These two are together:
 const watcherMap:       Map<number, FSWatcher> = new Map();
@@ -192,7 +192,7 @@ function thumbQueueRunner(element: ImageElement, done): void {
  */
 function sendNewVideoMetadata(imageElement: ImageElementPlus): void {
 
-  alreadyInAngular.set(imageElement.fullPath, 1);
+  alreadyInAngular.set(imageElement.fullPath, imageElement.inputSource);
 
   delete imageElement.fullPath; // downgrade to `ImageElement` from `ImageElementPlus`
 
@@ -276,9 +276,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
 
     const allAcceptableFiles: string[] = [...acceptableFiles, ...GLOBALS.additionalExtensions];
 
-    const previouslyFound: Map<string, 1> = allFoundFilesMap.get(inputSource);
     const foundNow: Map<string, 1> = new Map();
-    const newItems: TempMetadataQueueObject[] = [];
 
     files.forEach((fullPath: string) => {
 
@@ -296,7 +294,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
 
       const partial: string = path.relative(inputDir, parsed.dir).replace(/\\/g, '/');
 
-      newItems.push({
+      metadataQueue.push({
         fullPath: fullPath,
         inputSource: inputSource,
         name: parsed.base,
@@ -305,25 +303,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
 
     });
 
-    // A folder that had videos and now shows none is far more likely unreachable (share offline, volume
-    // not mounted) than emptied -- Angular removes from the hub whatever is missing here, so keep the old list
-    if (foundNow.size === 0 && previouslyFound && previouslyFound.size > 0) {
-      console.log('no videos found in', inputDir, '-- keeping the previous list');
-    } else {
-      if (previouslyFound) {
-        previouslyFound.forEach((value: 1, fullPath: string) => {
-          if (!foundNow.has(fullPath)) {
-            alreadyInAngular.delete(fullPath); // gone -- import it again if it ever comes back
-          }
-        });
-      }
-      allFoundFilesMap.set(inputSource, foundNow);
-      newItems.forEach((newItem: TempMetadataQueueObject) => {
-        metadataQueue.push(newItem);
-      });
-    }
-
-    GLOBALS.angularApp.sender.send('all-files-found-in-dir', inputSource, allFoundFilesMap.get(inputSource));
+    return reportFilesFound(inputDir, inputSource, foundNow);
 
   }).catch((err) => {
     console.log('scan failed', inputDir, err);
@@ -332,6 +312,112 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
     resumeQueuesAfterScan();
   });
 
+}
+
+/**
+ * Tell Angular which videos of a source folder are on disk -- it removes from the hub whatever is not listed,
+ * and with it the tags and ratings. A scan leaves out more than what was deleted: folders it could not read
+ * are skipped without an error, and a share or volume that is not mounted looks like an empty folder.
+ * So a video the hub knows but the scan did not find is only left out when it is verifiably deleted.
+ *
+ * @param inputDir    -- full path to the input folder
+ * @param inputSource -- the number corresponding to the `inputSource` in ImageElement
+ * @param foundNow    -- full paths to the videos the scan found; the videos to keep are added to it
+ */
+function reportFilesFound(inputDir: string, inputSource: number, foundNow: Map<string, 1>): Promise<void> {
+
+  const missing: string[] = [];
+
+  alreadyInAngular.forEach((source: number, fullPath: string) => {
+    if (source === inputSource && !foundNow.has(fullPath)) {
+      missing.push(fullPath);
+    }
+  });
+
+  // Not a single video where the hub has some: far more likely unreachable than emptied -- keep them all
+  const nothingFound: boolean = foundNow.size === 0 && missing.length > 0;
+
+  return (nothingFound ? Promise.resolve<string[]>([]) : findDeleted(missing, inputDir)).then((deleted: string[]) => {
+
+    const deletedSet: Set<string> = new Set(deleted);
+
+    missing.forEach((fullPath: string) => {
+      if (deletedSet.has(fullPath)) {
+        alreadyInAngular.delete(fullPath); // gone -- import it again if it ever comes back
+      } else {
+        foundNow.set(fullPath, 1);
+      }
+    });
+
+    if (missing.length) {
+      console.log(inputDir, '-- videos missing from the scan:', missing.length, 'of them deleted:', deleted.length);
+    }
+
+    allFoundFilesMap.set(inputSource, foundNow);
+
+    GLOBALS.angularApp.sender.send('all-files-found-in-dir', inputSource, foundNow);
+  });
+}
+
+/**
+ * Of the videos a scan did not find, return those that are no longer part of the collection:
+ *  - a video the scan skips on purpose (ignored folder, file type no longer accepted)
+ *  - a video missing from the listing of its folder, or whose folder is missing from the listing of the folder above
+ * When a folder on the way can not be read the video is not returned -- being unreadable is not being deleted
+ *
+ * @param missing  -- full paths to the videos the scan did not find
+ * @param inputDir -- full path to the input folder; nothing is concluded from the folders above it
+ */
+function findDeleted(missing: string[], inputDir: string): Promise<string[]> {
+
+  const allAcceptableFiles: string[] = [...acceptableFiles, ...GLOBALS.additionalExtensions];
+  const rootPath: string = path.resolve(inputDir);
+
+  const listings: Map<string, Promise<Set<string> | NodeJS.ErrnoException>> = new Map(); // one per folder
+  const verdicts: Map<string, Promise<boolean>> = new Map();                               // one per file or folder
+
+  const list = (folder: string): Promise<Set<string> | NodeJS.ErrnoException> => {
+    if (!listings.has(folder)) {
+      listings.set(folder, fs.promises.readdir(folder).then(
+        (names: string[]) => new Set(names),
+        (err: NodeJS.ErrnoException) => err
+      ));
+    }
+    return listings.get(folder);
+  };
+
+  const isDeleted = (itemPath: string): Promise<boolean> => {
+    if (!verdicts.has(itemPath)) {
+      const parent: string = path.dirname(itemPath);
+
+      verdicts.set(itemPath, list(parent).then((listing: Set<string> | NodeJS.ErrnoException) => {
+        if (listing instanceof Set) {
+          return !listing.has(path.basename(itemPath));
+        }
+        if (parent === rootPath || parent === itemPath) {
+          return false; // the input folder itself can not be read (or we ran out of path)
+        }
+        if (listing.code === 'ENOENT' || listing.code === 'ENOTDIR') {
+          return isDeleted(parent); // the folder is not there -- deleted, if the folder above says so
+        }
+        return false; // no permission, busy, timed out, ...
+      }));
+    }
+    return verdicts.get(itemPath);
+  };
+
+  const isScanned = (fullPath: string): boolean => {
+    const segments: string[] = path.relative(rootPath, fullPath).split(path.sep);
+    const fileName: string = segments.pop();
+    return allAcceptableFiles.includes(path.extname(fileName).substr(1).toLowerCase())
+           && !segments.some((folderName: string) => isIgnoredFolder(folderName));
+  };
+
+  return Promise.all(missing.map((fullPath: string) => {
+    return isScanned(fullPath) ? isDeleted(path.resolve(fullPath)) : Promise.resolve(true);
+  })).then((results: boolean[]) => {
+    return missing.filter((fullPath: string, index: number) => results[index]);
+  });
 }
 
 /**
@@ -522,7 +608,7 @@ function watchWithChokidar(inputDir: string, inputSource: number): void {
 
       resumeQueuesAfterScan();
 
-      GLOBALS.angularApp.sender.send('all-files-found-in-dir', inputSource, allFoundFilesMap.get(inputSource));
+      reportFilesFound(inputDir, inputSource, allFoundFilesMap.get(inputSource) || new Map());
 
       if (persistent) {
         console.log('^^^^^^^^ - CONTINUING to watch this directory!');
@@ -562,7 +648,7 @@ export function resetWatchers(finalArray: ImageElement[]): void {
       element.fileName
     );
 
-    alreadyInAngular.set(fullPath, 1);
+    alreadyInAngular.set(fullPath, element.inputSource);
   });
 }
 
