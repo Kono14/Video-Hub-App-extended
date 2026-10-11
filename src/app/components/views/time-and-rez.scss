@@ -167,3 +167,29 @@
   left: unset;
   right: 3px;
 }
+
+// name of a folder, next to its icon -- white like the icon, so a folder is told from a video at a glance
+.folder-name {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 0 6px #000000aa; // alpha
+  color: black;
+  font-size: 12px;
+  font-weight: bold;
+  left: 35px;
+  line-height: 1.3;
+  max-width: calc(100% - 43px);
+  overflow: hidden;
+  padding: 1px 5px;
+  pointer-events: none;
+  position: absolute;
+  text-overflow: ellipsis;
+  top: 8px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.folder-name-larger {
+  font-size: 15px;
+  top: 6px;
+}

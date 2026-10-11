@@ -37,8 +37,17 @@
   pointer-events: none;
   position: absolute;
   top: 0;
-  transform: translate(10px, 10px);
+  transform: translate(2px, 1px); // inside the border here, so the same spot as in the thumbnails view
   width: 25px;
+}
+
+.folder-name {
+  left: 32px;
+  top: 5px;
+}
+
+.folder-name-larger {
+  top: 3px;
 }
 
 .items-in-folder {

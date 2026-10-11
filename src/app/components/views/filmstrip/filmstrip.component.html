@@ -50,13 +50,16 @@
     </div>
 
     @if (showMeta()) {
+      <span class="folder-name" [ngClass]="{ 'folder-name-larger': largerFont() }">{{ video().fileName }}</span>
+    }
+
+    @if (showMeta()) {
       @if (compactView()) {
         <div class="compact-meta" [ngClass]="{ 'compact-meta-larger': largerFont() }">
           <div class="compact-meta-row">
             <span class="compact-meta-item">{{ video().fileSize | fileSizePipe : true }}</span>
             <span class="compact-meta-item">{{ video().duration | lengthPipe : 'folder' }}</span>
           </div>
-          <span class="compact-meta-item compact-meta-title">{{ video().fileName }}</span>
         </div>
       } @else {
         <span class="time">{{ video().duration | lengthPipe : 'folder' }}</span>
