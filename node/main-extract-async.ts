@@ -309,6 +309,7 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
     cwd: inputDir,
     disableGlobbing: true,
     ignored: 'vha-*', // WARNING - dangerously ignores any path that includes `vha-` anywhere!!!
+    ignorePermissionErrors: true, // skip folders we may not read (e.g. `System Volume Information`, `$RECYCLE.BIN`)
     persistent: true, // NOTE: if `!persistent` we use `superFastSystemScan()` instead !!!
     usePolling: isNetworkAddress ? true : false,
   };
@@ -321,6 +322,10 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
   thumbQueue.pause();
 
   watcher
+    .on('error', (err) => {
+      // without a listener `chokidar` throws on any error and never emits `ready` -- the scan would never finish
+      console.log('watcher error', inputSource, err);
+    })
     .on('add', (filePath: string) => {
 
       const ext = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
