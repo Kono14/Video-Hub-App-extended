@@ -1,11 +1,14 @@
 <div class="donut">
 
-  <!-- the numbers are what is left to do and the pace: a percentage or a remaining time says little about either -->
+  <!-- what is left to do and the pace, and below how long that takes -->
   <div class="progress-numbers" [ngStyle]="{ color: darkMode() ? 'white' : 'black' }">
-    <div>{{ left() }} {{ leftLabel() }}</div>
-    @if (perMinute() > 0) {
-      <div>{{ perMinute() }} / min</div>
-    }
+    <div>
+      {{ left() }} {{ leftLabel() }}
+      @if (perMinute() > 0) {
+        · {{ perMinute() }} / min
+      }
+    </div>
+    <div>{{ timeLeft() }}</div>
   </div>
 
   <div class="progress-circle" [ngClass]="{ over50: percent() > 50 }">

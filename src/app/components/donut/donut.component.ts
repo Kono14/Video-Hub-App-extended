@@ -13,6 +13,7 @@ export class DonutComponent {
   readonly leftLabel = input<string>(); // the word to follow that number
   readonly percent = input<number>();
   readonly perMinute = input<number>(); // 0 == not known yet
+  readonly timeLeft = input<string>();  // how long it still takes and when it ends; empty == not known yet
 
   constructor() { }
 

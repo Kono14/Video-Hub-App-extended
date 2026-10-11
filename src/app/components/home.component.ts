@@ -169,6 +169,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
   extractionPercent = 1;
   extractionPerMinute = 0; // rough pace of the import -- 0 as long as it is not known
   extractionSamples: { time: number, current: number }[] = []; // recent progress, to tell the pace from
+  extractionTimeLeft = ''; // how long the import still takes and when it ends -- empty as long as it is not known
   importStage: ImportStage = 'done';
   progressString = '';
 
@@ -731,7 +732,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
       stage: ImportStage
     ) => {
 
-      this.updateExtractionPace(current, stage);
+      this.updateExtractionPace(current, total, stage);
       this.importStage = stage;
 
       if (this.isFirstRunEver) {
@@ -1123,19 +1124,23 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Work out how many videos per minute the import gets done, from its progress over the last two minutes:
-   * a pace since the start would take long to follow when videos get larger, or the drive they are on gets busy
+   * Work out how many videos per minute the import gets done, and from that how long it still takes.
+   * Both come from its recent progress: a pace since the start would take long to follow when
+   * the videos get larger, or the drive they are on gets busy
    * @param current - the number of videos done so far, as node reports it
+   * @param total   - the number of videos done and still to do
    * @param stage   - `ImportStage` type
    */
-  updateExtractionPace(current: number, stage: ImportStage): void {
-    const paceWindow = 2 * 60 * 1000;
+  updateExtractionPace(current: number, total: number, stage: ImportStage): void {
+    const paceWindow = 2 * 60 * 1000;      // the pace shown is that of the last two minutes
+    const estimateWindow = 10 * 60 * 1000; // the time left comes from a longer stretch, so it does not jump with every large video
     const samples = this.extractionSamples;
     const now: number = Date.now();
 
     if (stage !== this.importStage || (samples.length && current < samples[samples.length - 1].current)) {
       samples.length = 0; // another stage counts other things, and a new import starts from the beginning
       this.extractionPerMinute = 0;
+      this.extractionTimeLeft = '';
     }
 
     if (stage === 'done') {
@@ -1146,15 +1151,48 @@ export class HomeComponent implements OnInit, AfterViewInit {
       samples.push({ time: now, current: current });
     }
 
-    while (samples.length > 2 && now - samples[1].time >= paceWindow) {
+    while (samples.length > 2 && now - samples[1].time >= estimateWindow) {
       samples.shift();
     }
 
-    const timeSpan: number = now - samples[0].time;
+    // videos per minute over the last `timeWindow` -- `null` if less than `atLeast` has passed, which says nothing yet
+    const paceOver = (timeWindow: number, atLeast: number): number | null => {
+      const since = samples.find((sample) => now - sample.time <= timeWindow);
+      const timeSpan: number = now - since.time;
 
-    if (timeSpan >= 10 * 1000) { // a few seconds say nothing yet
-      this.extractionPerMinute = Math.round((current - samples[0].current) / (timeSpan / 60000));
+      return timeSpan >= atLeast ? (current - since.current) / (timeSpan / 60000) : null;
+    };
+
+    const recentPace: number | null = paceOver(paceWindow, 10 * 1000);
+    const steadyPace: number | null = paceOver(estimateWindow, 30 * 1000);
+
+    if (recentPace !== null) {
+      this.extractionPerMinute = Math.round(recentPace);
     }
+
+    if (steadyPace !== null) {
+      // an import that has come to a halt has no time left to tell
+      this.extractionTimeLeft = steadyPace > 0 ? this.describeTimeLeft((total - current) / steadyPace) : '';
+    }
+  }
+
+  /**
+   * How long an import still takes and at what time it ends, e.g. `~1 h 05 min · 20:12`
+   * @param minutesLeft
+   */
+  describeTimeLeft(minutesLeft: number): string {
+    const minutes: number = Math.max(1, Math.round(minutesLeft));
+    const duration: string = minutes < 60
+      ? minutes + ' min'
+      : Math.floor(minutes / 60) + ' h ' + String(minutes % 60).padStart(2, '0') + ' min';
+
+    if (minutes >= 24 * 60) {
+      return '~' + duration; // the time of day alone would mislead
+    }
+
+    const end: Date = new Date(Date.now() + minutes * 60000);
+
+    return '~' + duration + ' · ' + end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   }
 
   public cancelCurrentImport(): void {
