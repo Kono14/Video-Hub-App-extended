@@ -144,7 +144,7 @@ export class SortingPipe implements PipeTransform {
   }
 
   /**
-   * Return the same array randomized on next search
+   * Sort the gallery; folders always come first, in alphabetical order
    * @param galleryArray
    * @param sortingType            - sorting method
    * @param forceSortUpdateTrigger - hack to force the sorting update
@@ -154,6 +154,49 @@ export class SortingPipe implements PipeTransform {
     galleryArray: ImageElement[],
     sortingType: SortType,
     forceSortUpdateTrigger: number | string, // changing input forces pipe to re-sort again
+    skip: boolean
+  ): ImageElement[] {
+
+    const sorted: ImageElement[] = this.sortGallery(galleryArray, sortingType, skip);
+
+    // sorting by folder size is about the order of the folders -- leave it alone
+    if (skip || sortingType === 'folderSizeAsc' || sortingType === 'folderSizeDesc') {
+      return sorted;
+    }
+
+    return this.foldersFirst(sorted);
+  }
+
+  /**
+   * Move the folders to the front in alphabetical order -- after the `UP` folder, before the videos, which keep
+   * their order. Shuffled or sorted by date among the videos a folder is hard to find, while there is
+   * nothing to gain from the folders being in a different place every time
+   * @param galleryArray
+   */
+  foldersFirst(galleryArray: ImageElement[]): ImageElement[] {
+
+    const isFolder = (element: ImageElement): boolean => element.cleanName === '*FOLDER*';
+
+    if (!galleryArray.some(isFolder)) {
+      return galleryArray;
+    }
+
+    const up: ImageElement[] =      galleryArray.filter((element) => isFolder(element) && element.fileName === '*UP*');
+    const folders: ImageElement[] = galleryArray.filter((element) => isFolder(element) && element.fileName !== '*UP*');
+    const videos: ImageElement[] =  galleryArray.filter((element) => !isFolder(element));
+
+    return [...up, ...orderBy(folders, 'fileName', 'asc'), ...videos];
+  }
+
+  /**
+   * Return the same array randomized on next search
+   * @param galleryArray
+   * @param sortingType            - sorting method
+   * @param skip                   - whether to sort or return as is (needed for DUPLICATE SEARCH)
+   */
+  sortGallery(
+    galleryArray: ImageElement[],
+    sortingType: SortType,
     skip: boolean
   ): ImageElement[] {
 
