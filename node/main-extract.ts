@@ -301,7 +301,7 @@ export function extractAll(
       // console.log('01 - video file live = ' + videoFileExists);
 
       if (!videoFileExists) {
-        throw new Error('VIDEO FILE NOT PRESENT');
+        throw new Error('video file not found');
       } else {
         return checkFileExists(thumbnailSavePath);                                        // (2)
       }
@@ -321,7 +321,7 @@ export function extractAll(
       // console.log('03 - single screenshot now present = ' + thumbSuccess);
 
       if (!thumbSuccess) {
-        throw new Error('SINGLE SCREENSHOT EXTRACTION TIMED OUT - LIKELY CORRUPT');
+        throw new Error('no thumbnail (video damaged or extraction took too long)');
       } else {
         return checkFileExists(filmstripSavePath);                                        // (4)
       }
@@ -341,7 +341,7 @@ export function extractAll(
       // console.log('05 - filmstrip now present = ' + filmstripSuccess);
 
       if (!filmstripSuccess) {
-        throw new Error('FILMSTRIP GENERATION TIMED OUT - LIKELY CORRUPT');
+        throw new Error('no filmstrip (video damaged or extraction took too long)');
       } else if (clipSnippets === 0) {
         throw new Error('USER DOES NOT WANT CLIPS');
       } else {
@@ -369,7 +369,7 @@ export function extractAll(
       if (clipGenerationSuccess) {
         return checkFileExists(clipThumbSavePath);                                        // (8)
       } else {
-        throw new Error('ERROR GENERATING CLIP');
+        throw new Error('no preview clip (video damaged or extraction took too long)');
       }
     })
     .then((clipThumbExists: boolean) => {
@@ -393,8 +393,28 @@ export function extractAll(
     })
     .catch((err) => {
       // console.log('===> ERROR - RESTARTING: ' + err);
+      if (err.message !== 'USER DOES NOT WANT CLIPS') { // not a failure, merely the way to skip the clip steps
+        logExtractionFailure(pathToVideo, err.message);
+      }
       done();
     });
+}
+
+/**
+ * Note down a video whose screenshots could not be extracted
+ * in `vha-preview-errors.log` in the settings folder -- the app shows nothing but an empty preview otherwise
+ * @param pathToVideo
+ * @param reason
+ */
+function logExtractionFailure(pathToVideo: string, reason: string): void {
+  try {
+    const logPath: string = path.join(GLOBALS.settingsPath, 'vha-preview-errors.log');
+    if (fs.existsSync(logPath) && fs.statSync(logPath).size > 1024 * 1024) {
+      fs.renameSync(logPath, logPath + '.old');
+    }
+    const now: string = new Date().toLocaleString('sv'); // local time as `2026-01-31 14:05:59`
+    fs.appendFileSync(logPath, now + ' ' + reason + ': ' + pathToVideo + '\n');
+  } catch {}
 }
 
 /**
