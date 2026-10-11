@@ -169,12 +169,11 @@ function thumbQueueRunner(element: ImageElement, done): void {
       done();
     })
     .catch(() => {
-      sendCurrentProgress( // TODO check whether sending data off by 1
+      sendCurrentProgress(
         thumbsDone,
         thumbsDone + thumbQueue.length() + thumbQueue.running(),
         'importingScreenshots'
       );
-      thumbsDone++;
 
       thumbsInProgress.add(element.hash);
 
@@ -187,8 +186,10 @@ function thumbQueueRunner(element: ImageElement, done): void {
           thumbsInProgress.delete(element.hash);
 
           if (queue === thumbQueue) {
-            // say so when a video is finished too, not only when one is started: or the count of what is left
-            // stands still while the last videos are extracted. This worker still counts as running
+            // A video counts as done when it is finished, not when it is started: with several videos at once
+            // the count would run ahead otherwise, and stand still while the last videos are extracted.
+            // This worker still counts as running
+            thumbsDone++;
             sendCurrentProgress(
               thumbsDone,
               thumbsDone + thumbQueue.length() + thumbQueue.running() - 1,
