@@ -11,6 +11,7 @@
   <div
     (click)="videoClick.emit({ mouseEvent: $event })"
     class="filmstrip-container folder"
+    [ngClass]="{ 'folder-up': video().fileName === '*UP*' }"
     [ngStyle]="{ height: imgHeight() + 'px' }"
   >
 
@@ -44,14 +45,15 @@
 
     }
 
-    <div class="folder-icon">
-      <app-icon [icon]="'icon-folder-blank'" />
-      <div class="items-in-folder">{{ video().fileSizeDisplay | folderSizePipe }}</div>
+    <div class="folder-tab" [ngClass]="{ 'folder-tab-larger': largerFont() }">
+      <div class="folder-tab-icon">
+        <app-icon [icon]="'icon-folder-blank'" />
+        <div class="folder-tab-count">{{ video().fileSizeDisplay | folderSizePipe }}</div>
+      </div>
+      @if (showMeta()) {
+        <span class="folder-tab-name">{{ video().fileName }}</span>
+      }
     </div>
-
-    @if (showMeta()) {
-      <span class="folder-name" [ngClass]="{ 'folder-name-larger': largerFont() }">{{ video().fileName }}</span>
-    }
 
     @if (showMeta()) {
       @if (compactView()) {

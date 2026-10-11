@@ -1,13 +1,15 @@
+@use "../../variables.scss";
+
 .compact-margins {
   margin: 5px 0 0 20px;
 }
 
 .folder {
-  border: 3px solid #ffc107; // the yellow of a folder -- white did not stand out among bright videos
-  border-radius: 10px;
-  box-sizing: border-box;
-  outline: none;
   overflow: hidden;
+}
+
+.folder-up {
+  background-color: variables.$gray-80; // the row that leads one folder up shows no picture
 }
 
 .folder-single {
@@ -27,36 +29,6 @@
   background-size: cover;
   flex: 0 0 auto;
   height: 100%;
-}
-
-.folder-icon {
-  fill: white;
-  filter: drop-shadow(0 0 10px black);
-  font-family: monospace;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  transform: translate(2px, 1px); // inside the border here, so the same spot as in the thumbnails view
-  width: 25px;
-}
-
-.folder-name {
-  left: 32px;
-  top: 5px;
-}
-
-.folder-name-larger {
-  top: 3px;
-}
-
-.items-in-folder {
-  font-size: 10px;
-  left: 3px;
-  position: absolute;
-  text-align: center;
-  top: 8px;
-  width: 18px;
 }
 
 .up-icon {

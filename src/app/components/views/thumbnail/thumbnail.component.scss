@@ -18,21 +18,12 @@
   width: 100%;
 }
 
-.folder {
-  border: 3px solid #ffc107; // the yellow of a folder -- white did not stand out among bright videos
-  border-radius: 10px;
-  box-sizing: border-box;
+.folder-up {
+  background-color: variables.$gray-80; // the tile that leads one folder up shows no picture
 }
 
-.folder-icon {
-  fill: white;
-  filter: drop-shadow(0 0 10px black);
-  font-family: monospace;
-  left: 0;
-  position: absolute;
-  top: 0;
-  transform: translate(5px, 4px);
-  width: 25px;
+.folder-tab {
+  border-top-left-radius: 6px; // the corner of the tile it sits in
 }
 
 .folder-time {
@@ -45,15 +36,6 @@
 
 .full-filmstrip {
   pointer-events: none;
-}
-
-.items-in-folder {
-  font-size: 10px;
-  left: 3px;
-  position: absolute;
-  text-align: center;
-  top: 8px;
-  width: 18px;
 }
 
 .playlist-icon {
