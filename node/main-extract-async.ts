@@ -104,6 +104,13 @@ export function resetAllQueues(): void {
 
     thumbQueue.resume();
 
+    // When every new file turned out unreadable (damaged, still downloading) there is nothing to extract:
+    // the `thumbQueue` never drains, so Angular would show the import as running forever
+    if (thumbQueue.idle()) {
+      sendCurrentProgress(1, 1, 'done');
+      allowSleep();
+    }
+
     logPerformance('META QUEUE took ', metaExtractionStartTime);
   });
 
