@@ -155,6 +155,7 @@ export function resetAllQueues(): void {
  * @param done    -- callback to indicate the current extraction finished
  */
 function thumbQueueRunner(element: ImageElement, done): void {
+  const queue = thumbQueue; // a cancelled import replaces the queue while its last extractions still run
   const screenshotOutputFolder: string = path.join(GLOBALS.selectedOutputFolder, 'vha-' + GLOBALS.hubName);
   const shouldExtractClips: boolean = GLOBALS.screenshotSettings.clipSnippets > 0;
 
@@ -184,6 +185,17 @@ function thumbQueueRunner(element: ImageElement, done): void {
         GLOBALS.screenshotSettings,
         () => {
           thumbsInProgress.delete(element.hash);
+
+          if (queue === thumbQueue) {
+            // say so when a video is finished too, not only when one is started: or the count of what is left
+            // stands still while the last videos are extracted. This worker still counts as running
+            sendCurrentProgress(
+              thumbsDone,
+              thumbsDone + thumbQueue.length() + thumbQueue.running() - 1,
+              'importingScreenshots'
+            );
+          }
+
           done();
         }
       );
@@ -753,13 +765,56 @@ function hasAllThumbs(
 }
 
 /**
- * Send all `imageElements` to the `thumbQueue`
+ * The videos that lack a thumbnail, a filmstrip or (if wanted) a clip -- every `hash` only once
+ *
+ * Lists the screenshot folders once instead of asking for the files of each video in turn:
+ * that way the queue holds nothing but real work, and its length tells how much of it is left
+ * @param fullArray          - ImageElement array
+ */
+function elementsWithoutThumbs(fullArray: ImageElement[]): Promise<ImageElement[]> {
+  const screenshotOutputFolder: string = path.join(GLOBALS.selectedOutputFolder, 'vha-' + GLOBALS.hubName);
+  const shouldExtractClips: boolean = GLOBALS.screenshotSettings.clipSnippets > 0;
+
+  const filesIn = (subfolder: string): Promise<Set<string>> => {
+    return fs.promises.readdir(path.join(screenshotOutputFolder, subfolder)).then((names: string[]) => new Set(names));
+  };
+
+  return Promise.all([filesIn('thumbnails'), filesIn('filmstrips'), shouldExtractClips ? filesIn('clips') : null])
+    .then(([thumbnails, filmstrips, clips]: Set<string>[]) => {
+      const seen: Set<string> = new Set();
+
+      return fullArray.filter((element: ImageElement) => {
+        if (seen.has(element.hash)) {
+          return false;
+        }
+        seen.add(element.hash);
+
+        return !thumbnails.has(element.hash + '.jpg')
+            || !filmstrips.has(element.hash + '.jpg')
+            || (clips !== null && !(clips.has(element.hash + '.mp4') && clips.has(element.hash + '.jpg')));
+      });
+    })
+    .catch(() => {
+      return fullArray; // a folder could not be listed: the queue checks every video on its own, as it used to
+    });
+}
+
+/**
+ * Send all `imageElements` that lack a screenshot to the `thumbQueue`
  * @param fullArray          - ImageElement array
  */
 export function extractAnyMissingThumbs(fullArray: ImageElement[]): void {
-  preventSleep();
-  fullArray.forEach((element: ImageElement) => {
-    thumbQueue.push(element);
+  const queue = thumbQueue;
+
+  elementsWithoutThumbs(fullArray).then((missing: ImageElement[]) => {
+    if (queue !== thumbQueue || missing.length === 0) {
+      return; // the import was cancelled or another hub opened meanwhile -- or there is nothing to do
+    }
+
+    preventSleep();
+    missing.forEach((element: ImageElement) => {
+      thumbQueue.push(element);
+    });
   });
 }
 
