@@ -48,6 +48,25 @@ export class FilmstripComponent implements OnInit {
     });
   });
 
+  // Every screenshot of a filmstrip sits in a 16:9 cell: a video of a narrower shape (filmed upright, or 4:3) has
+  // black bars left and right of each of them. For such a video this is the width of the picture inside a cell,
+  // so that the screenshots can be shown side by side without the bars -- 0 for a video that fills its cells
+  readonly frameWidth = computed<number>(() => {
+    const video: ImageElement = this.video();
+    const cellWidth = this.imgHeight() * (16 / 9);
+    const pictureWidth = Math.floor(this.imgHeight() * video.width / video.height) - 2; // the edge of a bar is not sharp
+
+    return (video.width > 0 && video.height > 0 && pictureWidth > 0 && pictureWidth < cellWidth - 4) ? pictureWidth : 0;
+  });
+
+  // where the picture of each screenshot starts inside the filmstrip image
+  readonly frameOffsets = computed<number[]>(() => {
+    const cellWidth = this.imgHeight() * (16 / 9);
+    const barWidth = (cellWidth - this.frameWidth()) / 2;
+
+    return Array.from({ length: this.video().screens }, (_, index) => index * cellWidth + barWidth);
+  });
+
   fullFilePath = '';
   filmXoffset = 0;
   indexToShow = 1;
@@ -62,7 +81,16 @@ export class FilmstripComponent implements OnInit {
   }
 
   updateFilmXoffset(mouseMove: PointerEvent) {
-    if (this.hoverScrub()) {
+    if (this.hoverScrub() && this.frameWidth()) {
+      const holder: DOMRect = this.filmstripHolder().nativeElement.getBoundingClientRect();
+      const cursorX = mouseMove.clientX - holder.left; // `layerX` would be relative to the screenshot under the cursor
+      const lastScreen = this.video().screens - 1;
+      const screensOutsideCutoff = Math.max(0, this.video().screens - Math.floor(holder.width / this.frameWidth()));
+      const firstScreenShown = Math.min(screensOutsideCutoff, Math.floor(cursorX / holder.width * (screensOutsideCutoff + 1)));
+
+      this.indexToShow = Math.max(0, Math.min(lastScreen, firstScreenShown + Math.floor(cursorX / this.frameWidth())));
+      this.filmXoffset = this.frameWidth() * firstScreenShown;
+    } else if (this.hoverScrub()) {
       const imgWidth = this.imgHeight() * (16 / 9); // hardcoded aspect ratio
       const containerWidth = this.filmstripHolder().nativeElement.getBoundingClientRect().width;
       const howManyScreensOutsideCutoff = this.video().screens - Math.floor(containerWidth / imgWidth);

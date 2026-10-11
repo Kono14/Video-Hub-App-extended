@@ -32,6 +32,21 @@
   height: 100%;
 }
 
+.filmstrip-container {
+  overflow-x: hidden; // the screenshots of a narrow video are elements of their own, and wider than the row
+}
+
+.narrow-frames {
+  display: flex;
+  height: 100%;
+}
+
+.narrow-frame {
+  background-repeat: no-repeat;
+  flex: 0 0 auto;
+  height: 100%;
+}
+
 .up-icon {
   fill: white;
   left: 10px;

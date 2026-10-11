@@ -94,13 +94,30 @@
     (dblclick)="videoClick.emit({ mouseEvent: $event, thumbIndex: indexToShow, doubleClick: true })"
     (contextmenu)="rightClick.emit({ mouseEvent: $event, item: video() })"
     class="filmstrip-container"
-    [ngStyle]="{
+    [ngStyle]="frameWidth() ? { height: imgHeight() + 'px' } : {
         height: imgHeight() + 'px',
         'background-image': 'url(' + fullFilePath + ')',
         'background-position-x': '-' + filmXoffset + 'px',
         'background-size': 'auto ' + imgHeight() + 'px'
       }"
   >
+    @if (frameWidth()) {
+      <!-- a video narrower than 16:9: every screenshot on its own, without the black bars left and right of it -->
+      <div class="narrow-frames" [ngStyle]="{ 'margin-left': '-' + filmXoffset + 'px' }">
+        @for (offset of frameOffsets(); track $index) {
+          <div
+            class="narrow-frame"
+            [ngStyle]="{
+                'background-image': 'url(' + fullFilePath + ')',
+                'background-position-x': '-' + offset + 'px',
+                'background-size': 'auto ' + imgHeight() + 'px',
+                width: frameWidth() + 'px'
+              }"
+          ></div>
+        }
+      </div>
+    }
+
     @if (showMeta()) {
       @if (compactView()) {
         <div class="compact-meta" [ngClass]="{ 'compact-meta-larger': largerFont() }">
