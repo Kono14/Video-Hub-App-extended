@@ -1198,6 +1198,12 @@ export class HomeComponent implements OnInit, AfterViewInit {
   public initiateClose(): void {
     this.isClosing = true;
     clearInterval(this.autosaveTimer);
+    // An autosave still under way has already cleared the "needs saving" marks, yet it may fail, or the app may
+    // quit before the file is written -- without the library sent along node closes at once. Send it again:
+    // node writes one after the other and closes when this one is done
+    if (this.autosaveInFlight) {
+      this.imageElementService.finalArrayNeedsSaving = true;
+    }
     this.savePreviousViewSize();
     this.appState.imgsPerRow = this.imgsPerRow;
     (window as any).myElectron.sendToMain('close-window', this.getSettingsForSave(), this.getFinalObjectForSaving());
