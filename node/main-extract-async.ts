@@ -483,11 +483,20 @@ function watchWithChokidar(inputDir: string, inputSource: number): void {
       metadataQueue.push(newItem);
     })
     .on('unlink', (partialFilePath: string) => {    // note: this happens even when file is renamed!
-      console.log(' !!! FILE DELETED, updating Angular:', partialFilePath);
-      GLOBALS.angularApp.sender.send('single-file-deleted', inputSource, partialFilePath);
-      // remove element from `alreadyInAngular`
       const basePath: string = GLOBALS.selectedSourceFolders[inputSource].path;
-      alreadyInAngular.delete(path.join(basePath, partialFilePath));
+      const fullPath: string = path.join(basePath, partialFilePath);
+      // `chokidar` also reports files that are still there (seen on Windows) -- removing those from the hub
+      // loses their tags and ratings, so only believe it when the file is really gone
+      fs.access(fullPath, fs.constants.F_OK, (err: any) => {
+        if (!err) {
+          console.log('reported as deleted but still present:', partialFilePath);
+          return;
+        }
+        console.log(' !!! FILE DELETED, updating Angular:', partialFilePath);
+        GLOBALS.angularApp.sender.send('single-file-deleted', inputSource, partialFilePath);
+        // remove element from `alreadyInAngular`
+        alreadyInAngular.delete(fullPath);
+      });
       // note: there is no need to watch for `unlinkDir` since `unlink` fires for every file anyway!
     })
     .on('ready', () => {
