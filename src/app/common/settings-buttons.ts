@@ -60,6 +60,7 @@ export type SettingsButtonKey = 'autoFileTags'
  | 'showFullView'
  | 'showMoreInfo'
  | 'showOnlyFavorites'
+ | 'showOnlyMissingPreviews'
  | 'showOnlyPlaylist'
  | 'showRecent'
  | 'showRecentlyPlayed'
@@ -131,6 +132,7 @@ export const SettingsButtonsGroups: SettingsButtonKey[][] = [
     'starFilter',
     'sortOrder',
     'hideOffline',
+    'showOnlyMissingPreviews',
     'sortOptionAlphabetical', // Sorting options in the dropdown
     'sortOptionAlphabetical2',
     'sortOptionTime',
@@ -735,6 +737,14 @@ export const SettingsButtons: SettingsButtonsType = {
     iconName: 'icon-heart',
     moreInfo: 'BUTTONS.showOnlyFavoritesMoreInfo',
     title: 'BUTTONS.showOnlyFavoritesHint',
+    toggled: false
+  },
+  'showOnlyMissingPreviews': {
+    description: 'BUTTONS.showOnlyMissingPreviewsDescription',
+    hidden: false,
+    iconName: 'icon-missing-preview',
+    moreInfo: 'BUTTONS.showOnlyMissingPreviewsMoreInfo',
+    title: 'BUTTONS.showOnlyMissingPreviewsHint',
     toggled: false
   },
   'showOnlyPlaylist': {

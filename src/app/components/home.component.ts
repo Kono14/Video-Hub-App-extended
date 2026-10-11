@@ -329,6 +329,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
   folderNavigationScrollOffset = 0; // when in folder view and returning back to root
   folderViewNavigationPath = '';
 
+  existingPreviews: Set<string> = null; // hashes with a thumbnail and a filmstrip on disk -- for `showOnlyMissingPreviews`
+
   batchTaggingMode = false; // when batch tagging is enabled
 
   latestVersionAvailable: string;
@@ -729,6 +731,10 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
       this.importStage = stage;
 
+      if (stage === 'done' && this.settingsButtons['showOnlyMissingPreviews'].toggled) {
+        this.findExistingPreviews(); // some of the missing screenshots may exist now
+      }
+
       if (this.isFirstRunEver) {
         this.showFirstRunMessage();
       }
@@ -751,6 +757,17 @@ export class HomeComponent implements OnInit, AfterViewInit {
       this.extractionPercent = percentProgress;
 
       this.cd.detectChanges(); // seems needed to update the donut
+    });
+
+    // Answer to `find-existing-previews`: `null` means the screenshot folder could not be read
+    (window as any).myElectron.receiveFromMain('existing-previews', (hashes: string[]) => {
+      if (hashes) {
+        this.existingPreviews = new Set(hashes);
+      } else {
+        this.existingPreviews = null;
+        this.settingsButtons['showOnlyMissingPreviews'].toggled = false;
+      }
+      this.cd.detectChanges();
     });
 
     (window as any).myElectron.receiveFromMain('autosave-vha-done', (vhaPath: string, errorMessage: string) => {
@@ -1472,6 +1489,13 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Ask node which videos have their screenshots on disk; the answer arrives as `existing-previews`
+   */
+  findExistingPreviews(): void {
+    (window as any).myElectron.sendToMain('find-existing-previews');
+  }
+
+  /**
    * Navigate one folder up - exactly what clicking the `UP` folder does
    */
   goUpOneFolder(): void {
@@ -1808,6 +1832,13 @@ export class HomeComponent implements OnInit, AfterViewInit {
       ) {
         this.computeTextBufferAmount();
       }
+    } else if (uniqueKey === 'showOnlyMissingPreviews') {
+      this.toggleButtonOpposite(uniqueKey);
+      if (this.settingsButtons[uniqueKey].toggled) {
+        this.existingPreviews = null; // show everything until node has answered
+        this.findExistingPreviews();
+      }
+      this.scrollToTop();
     } else if (uniqueKey === 'showFolders') {
       this.toggleButtonOpposite('showFolders');
       if (!this.settingsButtons['showFolders'].toggled) {
@@ -2181,6 +2212,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
     this.computeTextBufferAmount();
 
     this.settingsButtons['showTags'].toggled = false; // never show tags on load (they don't load right anyway)
+    this.settingsButtons['showOnlyMissingPreviews'].toggled = false; // needs a fresh look at the screenshot folder
 
     if (this.settingsButtons['showTagTray'].toggled) {
       this.settingsButtons['showTagTray'].toggled = false;

@@ -310,6 +310,28 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
   });
 
   /**
+   * Tell Angular which videos have both a thumbnail and a filmstrip -- for the "only missing previews" filter
+   * sends the hashes, or `null` when the screenshot folder cannot be read
+   */
+  ipc.on('find-existing-previews', (event) => {
+    const screenshotOutputFolder: string = path.join(GLOBALS.selectedOutputFolder, 'vha-' + GLOBALS.hubName);
+
+    Promise.all([
+      fs.promises.readdir(path.join(screenshotOutputFolder, 'thumbnails')),
+      fs.promises.readdir(path.join(screenshotOutputFolder, 'filmstrips')),
+    ]).then(([thumbnails, filmstrips]: [string[], string[]]) => {
+      const filmstripSet: Set<string> = new Set(filmstrips);
+      const hashes: string[] = thumbnails
+        .filter((fileName) => filmstripSet.has(fileName))
+        .map((fileName) => fileName.replace('.jpg', ''));
+      event.sender.send('existing-previews', hashes);
+    }).catch((err) => {
+      console.log('could not read the screenshot folder', err);
+      event.sender.send('existing-previews', null);
+    });
+  });
+
+  /**
    * Remove any thumbnails for files no longer present in the hub
    */
   ipc.on('clean-old-thumbnails', (event, finalArray: ImageElement[]) => {
