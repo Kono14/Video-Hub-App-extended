@@ -113,3 +113,57 @@
     }
   }
 }
+
+// file size, length, resolution and name on top of the image -- used only in compact view
+.compact-meta {
+  align-items: flex-start;
+  bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  gap: 2px;
+  left: 2px;
+  line-height: 1.2;
+  max-width: calc(100% - 4px);
+  pointer-events: none;
+  position: absolute;
+  text-align: left;
+  z-index: 2;
+}
+
+.compact-meta-larger {
+  font-size: 14px;
+}
+
+.compact-meta-row {
+  display: flex;
+  gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.compact-meta-item {
+  background: #000000aa; // alpha
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: white;
+  padding: 1px 4px;
+}
+
+.compact-meta-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  overflow: hidden;
+  // above all needed together for line-clamp
+
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+// keep clear of the name, which can reach the bottom middle in compact view
+.not-connected-corner {
+  left: unset;
+  right: 3px;
+}

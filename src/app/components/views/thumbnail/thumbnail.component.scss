@@ -74,3 +74,7 @@
   opacity: 1 !important;
   cursor: not-allowed;
 }
+
+.compact-meta {
+  max-width: calc(100% - 20px); // leave room for the playlist icon
+}

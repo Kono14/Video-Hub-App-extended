@@ -20,7 +20,7 @@
     "clipsThumbnailMoreInfo": "Verwendet dasselbe Miniaturbild aus den anderen Ansichten",
     "compactViewDescription": "Kompakte Ansicht",
     "compactViewHint": "Kompakte Ansicht",
-    "compactViewMoreInfo": "Betrifft nur die Ansicht „Thumbnails & Clips“, blendet Dateinamen aus",
+    "compactViewMoreInfo": "Dateinamen liegen in der Miniatur- und Filmstreifen-Ansicht über dem Bild, in der Clip-Ansicht sind sie ausgeblendet",
     "copyToClipboard": "Klicken Sie hier, um den Pfad in die Zwischenablage zu kopieren.",
     "dangerousDelete": "Dateien dauerhaft löschen",
     "dangerousDeleteDescription": "Löschen Sie den Bypass / Papierkorb gefährlich",

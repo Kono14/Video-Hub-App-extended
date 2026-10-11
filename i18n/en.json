@@ -20,7 +20,7 @@
     "clipsThumbnailMoreInfo": "Makes use of same thumbnail from the other views",
     "compactViewDescription": "Compact view",
     "compactViewHint": "Compact view",
-    "compactViewMoreInfo": "Hides file names. Only affects Thumbnails & Clips view",
+    "compactViewMoreInfo": "File names are shown on top of the image in Thumbnails & Filmstrip view and hidden in Clips view",
     "copyToClipboard": "Click to copy path to clipboard",
     "dangerousDelete": "Permanently delete files",
     "dangerousDeleteDescription": "Dangerously delete bypassing trash / recycling bin",

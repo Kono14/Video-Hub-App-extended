@@ -18,12 +18,23 @@
       }"
   >
     @if (showMeta()) {
-      <span class="time">{{ video().durationDisplay }}</span>
-      <span class="rez">{{ video().fileSizeDisplay }}
-        @if (video().resolution) {
-          <span class="time rez-new">{{ video().resolution }}</span>
-        }
-      </span>
+      @if (compactView()) {
+        <div class="compact-meta" [ngClass]="{ 'compact-meta-larger': largerFont() }">
+          <div class="compact-meta-row">
+            <span class="compact-meta-item">{{ video().fileSizeDisplay }}</span>
+            <span class="compact-meta-item">{{ video().durationDisplay }}</span>
+            @if (video().resolution) { <span class="compact-meta-item">{{ video().resolution }}</span> }
+          </div>
+          <span class="compact-meta-item compact-meta-title">{{ video().cleanName }}</span>
+        </div>
+      } @else {
+        <span class="time">{{ video().durationDisplay }}</span>
+        <span class="rez">{{ video().fileSizeDisplay }}
+          @if (video().resolution) {
+            <span class="time rez-new">{{ video().resolution }}</span>
+          }
+        </span>
+      }
     }
   </div>
 
