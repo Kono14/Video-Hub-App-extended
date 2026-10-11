@@ -7,6 +7,7 @@ const chokidar = require('chokidar');
 import * as path from 'path';
 import type { FSWatcher } from 'chokidar'; // probably the correct type for chokidar.watch() object
 const fs = require('fs');
+import type { Stats } from 'fs';
 import { fdir } from 'fdir';
 
 import { GLOBALS } from './main-globals';
@@ -305,10 +306,17 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
   const isNetworkAddress: boolean =    inputDir.startsWith('//')
                                     || inputDir.startsWith('\\\\');
 
+  const rootPath: string = path.resolve(inputDir);
+
   const watcherConfig = {
     cwd: inputDir,
     disableGlobbing: true,
-    ignored: 'vha-*', // WARNING - dangerously ignores any path that includes `vha-` anywhere!!!
+    // `chokidar` v4 dropped globs -- the old `'vha-*'` matched nothing, so the screenshot folders were scanned too
+    // skip every folder that starts with `vha-`, same as `superFastSystemScan` does
+    ignored: (itemPath: string, stats?: Stats) => !!stats
+                                                  && stats.isDirectory()
+                                                  && path.basename(itemPath).startsWith('vha-')
+                                                  && path.resolve(itemPath) !== rootPath,
     ignorePermissionErrors: true, // skip folders we may not read (e.g. `System Volume Information`, `$RECYCLE.BIN`)
     persistent: true, // NOTE: if `!persistent` we use `superFastSystemScan()` instead !!!
     usePolling: isNetworkAddress ? true : false,
