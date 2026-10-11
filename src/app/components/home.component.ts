@@ -410,8 +410,12 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
     event.preventDefault(); // prevent Chromium from navigating back in history
 
-    if (this.wizard.showWizard || this.settingsModalOpen) {
+    if (this.wizard.showWizard || this.settingsModalOpen || this.renamingNow || this.sheetOverlayShowing) {
       return;
+    }
+
+    if (!this.isFolderViewShowing()) {
+      return; // the folder would change unseen, and the gallery jump to the top
     }
 
     this.goUpOneFolder();
@@ -1503,6 +1507,14 @@ export class HomeComponent implements OnInit, AfterViewInit {
    */
   findExistingPreviews(): void {
     (window as any).myElectron.sendToMain('find-existing-previews');
+  }
+
+  /**
+   * Whether the gallery shows folders right now: the folder view is on and the current view supports it
+   */
+  isFolderViewShowing(): boolean {
+    return this.settingsButtons['showFolders'].toggled
+      && ['showThumbnails', 'showFilmstrip', 'showFiles', 'showClips'].includes(this.appState.currentView);
   }
 
   /**
