@@ -64,6 +64,9 @@ const watchRequestMap:  Map<number, number> = new Map();         // latest reque
 const scansInProgress:  Set<number> = new Set();                 // `inputSource` currently scanned by `fdir`
 let watchRequestCount = 0;
 
+// Windows system folders that are never scanned -- a deleted video in the recycle bin is not part of the collection
+const systemFolders: string[] = ['$recycle.bin', 'system volume information'];
+
 // =====================================================================================================================
 
 // Miscellaneous
@@ -258,7 +261,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
   thumbQueue.pause();
 
   const crawler = new fdir()
-    .exclude((dir: string) => dir.startsWith('vha-')) // .exclude `dir` is the folder name, not full path
+    .exclude((dir: string) => isIgnoredFolder(dir)) // .exclude `dir` is the folder name, not full path
     .withFullPaths()
     .crawl(inputDir);
 
@@ -329,6 +332,14 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
     resumeQueuesAfterScan();
   });
 
+}
+
+/**
+ * Whether to skip a folder while scanning: the app's own screenshot folders (`vha-...`) and Windows system folders
+ * @param folderName -- name of the folder, not its full path
+ */
+function isIgnoredFolder(folderName: string): boolean {
+  return folderName.startsWith('vha-') || systemFolders.includes(folderName.toLowerCase());
 }
 
 /**
@@ -437,10 +448,10 @@ function watchWithChokidar(inputDir: string, inputSource: number): void {
     cwd: inputDir,
     disableGlobbing: true,
     // `chokidar` v4 dropped globs -- the old `'vha-*'` matched nothing, so the screenshot folders were scanned too
-    // skip every folder that starts with `vha-`, same as `superFastSystemScan` does
+    // skip the same folders as `superFastSystemScan` does
     ignored: (itemPath: string, stats?: Stats) => !!stats
                                                   && stats.isDirectory()
-                                                  && path.basename(itemPath).startsWith('vha-')
+                                                  && isIgnoredFolder(path.basename(itemPath))
                                                   && path.resolve(itemPath) !== rootPath,
     ignorePermissionErrors: true, // skip folders we may not read (e.g. `System Volume Information`, `$RECYCLE.BIN`)
     persistent: true, // NOTE: if `!persistent` we use `superFastSystemScan()` instead !!!
