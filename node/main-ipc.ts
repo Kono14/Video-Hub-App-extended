@@ -411,14 +411,14 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
         writeVhaFileToDisk(finalObjectToSave, GLOBALS.currentlyOpenVhaFile, () => {
           try {
             GLOBALS.readyToQuit = true;
-            BrowserWindow.getFocusedWindow().close();
+            GLOBALS.winRef.close(); // not `getFocusedWindow()` -- it is `null` when closed from the taskbar or a script
           } catch {}
         });
 
       } else {
         try {
           GLOBALS.readyToQuit = true;
-          BrowserWindow.getFocusedWindow().close();
+          GLOBALS.winRef.close(); // not `getFocusedWindow()` -- it is `null` when closed from the taskbar or a script
         } catch {}
       }
     });
