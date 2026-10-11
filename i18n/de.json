@@ -253,6 +253,7 @@
     "yearSliderMoreInfo": "Zeigen Sie den Schieberegler für das Jahr an"
   },
   "RIGHTCLICK": {
+    "addToPlaylist": "Zur MPC-HC-Playlist hinzufügen",
     "cancelRename": "Umbenennung abbrechen",
     "delete": "Löschen",
     "errorFileNameExists": "Es existiert eine Datei mit diesem Dateinamen",

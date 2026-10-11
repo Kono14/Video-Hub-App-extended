@@ -1287,6 +1287,21 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Whether the preferred video player is MPC-HC, which can add a file to its playlist from the command line
+   */
+  preferredPlayerIsMpcHc(): boolean {
+    return /(^|[\\/])mpc-hc[^\\/]*$/i.test(this.appState.preferredVideoPlayer || '');
+  }
+
+  /**
+   * handle right-click and `Add to MPC-HC playlist` -- same as that entry in the File Explorer menu
+   */
+  addToPlayerPlaylist(): void {
+    const fullPath: string = this.filePathService.getPathFromImageElement(this.currentRightClickedItem);
+    (window as any).myElectron.sendToMain('add-to-player-playlist', this.appState.preferredVideoPlayer, fullPath);
+  }
+
+  /**
    * handle right-click and `Open folder`
    */
   openContainingFolderNow(): void {
@@ -2204,8 +2219,12 @@ export class HomeComponent implements OnInit, AfterViewInit {
     const clientY: number = event.clientY;
     const howFarFromBottom: number = winHeight - clientY;
 
-    this.rightClickPosition.x = (howFarFromRight < 150) ? clientX - 150 + (howFarFromRight) : clientX;
-    this.rightClickPosition.y = (howFarFromBottom < 210) ? clientY - 210 + (howFarFromBottom) : clientY;
+    // the `Add to MPC-HC playlist` entry makes the menu one line taller and, with its long label, wider
+    const menuWidth: number =  this.preferredPlayerIsMpcHc() ? 210 : 150;
+    const menuHeight: number = this.preferredPlayerIsMpcHc() ? 240 : 210;
+
+    this.rightClickPosition.x = (howFarFromRight < menuWidth)   ? clientX - menuWidth  + (howFarFromRight)  : clientX;
+    this.rightClickPosition.y = (howFarFromBottom < menuHeight) ? clientY - menuHeight + (howFarFromBottom) : clientY;
 
     this.rightClickShowing = true;
   }

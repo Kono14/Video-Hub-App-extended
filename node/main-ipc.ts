@@ -4,6 +4,7 @@ import * as path from 'path';
 const fs = require('fs');
 const trash = require('trash');
 const exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
 
 import { GLOBALS } from './main-globals';
 import { ImageElement, FinalObject, InputSources } from '../interfaces/final-object.interface';
@@ -84,6 +85,28 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
         const cmdline: string = `"${path.normalize(executablePath)}" "${path.normalize(fullFilePath)}" ${args}`;
         console.log(cmdline);
         exec(cmdline);
+      } else {
+        event.sender.send('file-not-found');
+      }
+    });
+  });
+
+  /**
+   * Add a video file to the playlist of MPC-HC -- what `Add to MPC-HC Playlist` does in File Explorer
+   * MPC-HC starts if it is not running; the file is queued, not played
+   */
+  ipc.on('add-to-player-playlist', (event, executablePath: string, fullFilePath: string) => {
+    fs.access(fullFilePath, fs.constants.F_OK, (err: any) => {
+      if (!err) {
+        // arguments as a list rather than one command line -- file names may contain `&`, `%` or quotes
+        const player = spawn(path.normalize(executablePath), ['/add', path.normalize(fullFilePath)], {
+          detached: true, // the player keeps running when this app closes
+          stdio: 'ignore',
+        });
+        player.on('error', (spawnError: any) => {
+          console.log('could not start the player', spawnError);
+        });
+        player.unref();
       } else {
         event.sender.send('file-not-found');
       }

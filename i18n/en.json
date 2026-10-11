@@ -253,6 +253,7 @@
     "yearSliderMoreInfo": "Show the year slider filter"
   },
   "RIGHTCLICK": {
+    "addToPlaylist": "Add to MPC-HC playlist",
     "cancelRename": "cancel rename",
     "delete": "Delete",
     "errorFileNameExists": "A file exists with this filename",

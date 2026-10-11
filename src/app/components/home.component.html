@@ -88,6 +88,13 @@
     @rightClickAnimation
   >
     <ul @rightClickContentAnimation>
+    @if (preferredPlayerIsMpcHc()) {
+      <li
+        (click)="addToPlayerPlaylist()"
+        [ngClass]="{ 'right-click-disabled': !sourceFolderService.sourceFolderConnected[currentRightClickedItem.inputSource] }"
+      >
+                                                                {{ 'RIGHTCLICK.addToPlaylist' | translate }}</li>
+    }
       <li
         (click)="renamingNow = true"
         [ngClass]="{ 'right-click-disabled': !sourceFolderService.sourceFolderConnected[currentRightClickedItem.inputSource] }"
