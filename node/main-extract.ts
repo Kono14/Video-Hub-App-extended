@@ -22,6 +22,7 @@
 // const { performance } = require('perf_hooks');  // for logging time taken during debug
 
 const fs = require('fs');
+const os = require('os');
 import * as path from 'path';
 const spawn = require('child_process').spawn;
 
@@ -33,7 +34,7 @@ import type { ImageElement, ScreenshotSettings } from '../interfaces/final-objec
 
 // How many videos to process at once (`ffprobe` / `ffmpeg` runs) -- half the CPU threads, between 1 and 4
 // on a network drive most of the time is spent waiting, so one at a time leaves the computer idle
-export const maxParallelExtractions: number = Math.max(1, Math.min(4, Math.floor(require('os').cpus().length / 2)));
+export const maxParallelExtractions: number = Math.max(1, Math.min(4, Math.floor(os.cpus().length / 2)));
 
 
 // ========================================================================================
@@ -44,26 +45,54 @@ export const maxParallelExtractions: number = Math.max(1, Math.min(4, Math.floor
  * Generate the ffmpeg args to extract a single frame according to settings
  * @param pathToVideo
  * @param screenshotHeight
- * @param duration
+ * @param time              -- where in the video to take the frame, in seconds
  * @param savePath
  */
 const extractSingleFrameArgs = (
   pathToVideo: string,
   screenshotHeight: number,
-  duration: number,
+  time: number,
   savePath: string,
 ): string[] => {
 
   const ssWidth: number = screenshotHeight * (16 / 9);
 
   const args: string[] = [
-    '-ss', (duration / 10).toString(),
+    '-ss', time.toString(),
     '-i', pathToVideo,
     '-frames', '1',
     '-q:v', '2',
     '-vf', scaleAndPadString(ssWidth, screenshotHeight),
     savePath,
   ];
+
+  return args;
+};
+
+/**
+ * Join screenshots that were extracted one by one into a filmstrip
+ *
+ * @param framePaths -- full paths to the screenshots in order, all of the same size
+ * @param savePath   -- full path to file name and extension
+ */
+const joinFramesArgs = (
+  framePaths: string[],
+  savePath: string,
+): string[] => {
+
+  const args: string[] = [];
+  let allFrames = '';
+
+  framePaths.forEach((framePath: string, index: number) => {
+    args.push('-i', framePath);
+    allFrames += '[' + index + ':v]';
+  });
+
+  args.push(
+    '-frames', '1',
+    '-filter_complex', allFrames + 'hstack=inputs=' + framePaths.length,
+    savePath
+  );
 
   return args;
 };
@@ -283,11 +312,9 @@ export function extractAll(
       if (thumbExists) {
         return true;
       } else {
-        const ffmpegArgs: string[] =  extractSingleFrameArgs(
-          pathToVideo, screenshotHeight, duration, thumbnailSavePath
+        return extractThumbnail(                                                          // (3)
+          pathToVideo, screenshotHeight, duration, thumbnailSavePath, maxRunTime
         );
-
-        return spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.thumb, 'thumb');               // (3)
       }
     })
     .then((thumbSuccess: boolean) => {
@@ -305,12 +332,9 @@ export function extractAll(
       if (filmstripExists) {
         return true;
       } else {
-
-        const ffmpegArgs: string [] = generateScreenshotStripArgs(
-          pathToVideo, duration, screenshotHeight, numOfScreens, filmstripSavePath
+        return extractFilmstrip(                                                          // (5)
+          pathToVideo, duration, screenshotHeight, numOfScreens, filmstripSavePath, maxRunTime
         );
-
-        return spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.filmstrip, 'filmstrip');       // (5)
       }
     })
     .then((filmstripSuccess: boolean) => {
@@ -373,12 +397,173 @@ export function extractAll(
     });
 }
 
+/**
+ * Extract the single screenshot
+ * When the usual spot (a tenth into the video) yields nothing, try further in
+ * -- a damaged stretch must not leave the video without any screenshot
+ *
+ * @param pathToVideo
+ * @param screenshotHeight
+ * @param duration
+ * @param savePath
+ * @param maxRunTime
+ */
+function extractThumbnail(
+  pathToVideo: string,
+  screenshotHeight: number,
+  duration: number,
+  savePath: string,
+  maxRunTime: ExtractionDurations,
+): Promise<boolean> {
+
+  const positions: number[] = [duration / 10, duration * 0.3, duration * 0.5, duration * 0.7];
+
+  const attempt = (index: number): Promise<boolean> => {
+    if (index === positions.length) {
+      return Promise.resolve(false);
+    }
+
+    const ffmpegArgs: string[] = extractSingleFrameArgs(pathToVideo, screenshotHeight, positions[index], savePath);
+
+    return spawn_ffmpeg_and_run(ffmpegArgs, index === 0 ? maxRunTime.thumb : maxRunTime.slowFrame, 'thumb')
+      .then(() => fileHasContent(savePath))
+      .then((extracted: boolean) => {
+        return extracted ? true : removeFile(savePath).then(() => attempt(index + 1));
+      });
+  };
+
+  return attempt(0);
+}
+
+/**
+ * Extract the filmstrip
+ * The usual way reads every screenshot in one `ffmpeg` run -- fast, but a single damaged spot fails the whole strip
+ * and a video that is slow to seek in runs out of time. If no filmstrip comes out, extract it frame by frame.
+ *
+ * @param pathToVideo
+ * @param duration
+ * @param screenshotHeight
+ * @param numberOfScreenshots
+ * @param savePath
+ * @param maxRunTime
+ */
+function extractFilmstrip(
+  pathToVideo: string,
+  duration: number,
+  screenshotHeight: number,
+  numberOfScreenshots: number,
+  savePath: string,
+  maxRunTime: ExtractionDurations,
+): Promise<boolean> {
+
+  const ffmpegArgs: string[] = generateScreenshotStripArgs(
+    pathToVideo, duration, screenshotHeight, numberOfScreenshots, savePath
+  );
+
+  return spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.filmstrip, 'filmstrip')
+    .then(() => fileHasContent(savePath))
+    .then((extracted: boolean) => {
+      if (extracted) {
+        return true;
+      }
+      return removeFile(savePath).then(() => extractFilmstripFrameByFrame(
+        pathToVideo, duration, screenshotHeight, numberOfScreenshots, savePath, maxRunTime
+      ));
+    });
+}
+
+/**
+ * Extract the filmstrip one screenshot at a time, each with its own time limit, then join them
+ * A screenshot that can not be extracted is replaced by the nearest one that could
+ *
+ * @param pathToVideo
+ * @param duration
+ * @param screenshotHeight
+ * @param numberOfScreenshots
+ * @param savePath
+ * @param maxRunTime
+ */
+function extractFilmstripFrameByFrame(
+  pathToVideo: string,
+  duration: number,
+  screenshotHeight: number,
+  numberOfScreenshots: number,
+  savePath: string,
+  maxRunTime: ExtractionDurations,
+): Promise<boolean> {
+
+  const step: number = duration / (numberOfScreenshots + 1); // the same spots `generateScreenshotStripArgs` uses
+  const framePaths: string[] = [];
+  const extracted: boolean[] = [];
+
+  for (let i = 0; i < numberOfScreenshots; i++) {
+    framePaths.push(path.join(os.tmpdir(), 'vha-' + path.basename(savePath, '.jpg') + '-' + i + '.jpg'));
+  }
+
+  const extractFrame = (index: number): Promise<void> => {
+    if (index === numberOfScreenshots) {
+      return Promise.resolve();
+    }
+
+    const ffmpegArgs: string[] = extractSingleFrameArgs(pathToVideo, screenshotHeight, (index + 1) * step, framePaths[index]);
+
+    return removeFile(framePaths[index]) // left over from an interrupted run -- `ffmpeg` would wait for permission to overwrite
+      .then(() => spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.slowFrame, 'filmstrip frame'))
+      .then(() => fileHasContent(framePaths[index]))
+      .then((frameExtracted: boolean) => {
+        extracted[index] = frameExtracted;
+        return extractFrame(index + 1);
+      });
+  };
+
+  return extractFrame(0)
+    .then(() => {
+      if (!extracted.includes(true)) {
+        return false;
+      }
+
+      const frames: string[] = framePaths.map((framePath: string, index: number) => {
+        return framePaths[nearestExtracted(extracted, index)];
+      });
+
+      if (frames.length === 1) { // `hstack` needs at least two
+        return new Promise<boolean>((resolve) => {
+          fs.copyFile(frames[0], savePath, (err: any) => resolve(!err));
+        });
+      }
+
+      return spawn_ffmpeg_and_run(joinFramesArgs(frames, savePath), maxRunTime.filmstrip, 'filmstrip join')
+        .then(() => fileHasContent(savePath));
+    })
+    .then((success: boolean) => {
+      return Promise.all(framePaths.map(removeFile)).then(() => success);
+    });
+}
+
+/**
+ * Index of the extracted screenshot closest to `index` (itself when it was extracted)
+ * @param extracted -- for every screenshot, whether it was extracted
+ * @param index
+ */
+function nearestExtracted(extracted: boolean[], index: number): number {
+  for (let distance = 0; distance < extracted.length; distance++) {
+    if (extracted[index - distance]) {
+      return index - distance;
+    }
+    if (extracted[index + distance]) {
+      return index + distance;
+    }
+  }
+  return index;
+}
+
 // ========================================================================================
 //         Helper methods
 // ========================================================================================
 
 interface ExtractionDurations {
   thumb: number;
+  slowFrame: number;
   filmstrip: number;
   clip: number;
   clipThumb: number;
@@ -426,6 +611,7 @@ function setExtractionDurations(
 
   return {                                                                                      // for me:
     thumb:     parallel * 500 * sourceFactor * thumbHeightFactor,                               // never above 800ms
+    slowFrame: parallel * 350 * sourceFactor * thumbHeightFactor * 5,                           // one screenshot of a video the usual limits were too short for
     filmstrip: parallel * 350 * sourceFactor * thumbHeightFactor * numOfScreens,                // rarely above 15s, but 4K 30screens took 50s
     clip:      parallel * 350 * sourceFactor * clipHeightFactor * clipSnippets * snippetLength, // rarely above 15s
     clipThumb: parallel * 400 * clipHeightRatio,                                                // never above 600ms
@@ -440,6 +626,31 @@ function checkFileExists(pathToFile: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
     fs.access(pathToFile, fs.constants.F_OK, (err: any) => {
       return(resolve(!err));
+    });
+  });
+}
+
+/**
+ * Return promise for whether file exists and is not empty
+ * `ffmpeg` exiting does not mean it wrote anything -- on a decoding error it exits without output
+ * @param pathToFile string
+ */
+function fileHasContent(pathToFile: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.stat(pathToFile, (err: any, stats) => {
+      return(resolve(!err && stats.size > 0));
+    });
+  });
+}
+
+/**
+ * Remove a file if it is there; resolves either way
+ * @param pathToFile string
+ */
+function removeFile(pathToFile: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    fs.unlink(pathToFile, () => {
+      return(resolve());
     });
   });
 }
