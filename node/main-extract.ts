@@ -31,6 +31,10 @@ import { GLOBALS } from './main-globals';
 
 import type { ImageElement, ScreenshotSettings } from '../interfaces/final-object.interface';
 
+// How many videos to process at once (`ffprobe` / `ffmpeg` runs) -- half the CPU threads, between 1 and 4
+// on a network drive most of the time is spent waiting, so one at a time leaves the computer idle
+export const maxParallelExtractions: number = Math.max(1, Math.min(4, Math.floor(require('os').cpus().length / 2)));
+
 
 // ========================================================================================
 //          FFMPEG arg generating functions
@@ -417,11 +421,14 @@ function setExtractionDurations(
   const sourceRatio = (sourceHeight === 0) ? 1 : (sourceHeight / 720); // 3 when source is 4k
   const sourceFactor = 1 + (sourceRatio * sourceRatio / 3); // square of ratio
 
-  return {                                                                           // for me:
-    thumb:     500 * sourceFactor * thumbHeightFactor,                               // never above 800ms
-    filmstrip: 350 * sourceFactor * thumbHeightFactor * numOfScreens,                // rarely above 15s, but 4K 30screens took 50s
-    clip:      350 * sourceFactor * clipHeightFactor * clipSnippets * snippetLength, // rarely above 15s
-    clipThumb: 400 * clipHeightRatio,                                                // never above 600ms
+  // extractions running side by side each take longer, so every one gets proportionally more time
+  const parallel = maxParallelExtractions;
+
+  return {                                                                                      // for me:
+    thumb:     parallel * 500 * sourceFactor * thumbHeightFactor,                               // never above 800ms
+    filmstrip: parallel * 350 * sourceFactor * thumbHeightFactor * numOfScreens,                // rarely above 15s, but 4K 30screens took 50s
+    clip:      parallel * 350 * sourceFactor * clipHeightFactor * clipSnippets * snippetLength, // rarely above 15s
+    clipThumb: parallel * 400 * clipHeightRatio,                                                // never above 600ms
   };
 }
 

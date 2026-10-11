@@ -14,7 +14,7 @@ import { GLOBALS } from './main-globals';
 
 import type { ImageElement, ImageElementPlus } from '../interfaces/final-object.interface';
 import { acceptableFiles } from './main-filenames';
-import { extractAll } from './main-extract';
+import { extractAll, maxParallelExtractions } from './main-extract';
 import { sendCurrentProgress, insertTemporaryFieldsSingle, extractMetadataAsync, cleanUpFileName } from './main-support';
 
 export interface TempMetadataQueueObject {
@@ -39,6 +39,7 @@ let metaExtractionStartTime = 0;
 let thumbQueue;         // QueueObject
 let thumbsDone = 0;
 let thumbExtractionStartTime = 0;
+const thumbsInProgress: Set<string> = new Set(); // hashes being extracted -- duplicate files share a hash and its screenshots
 
 // delete queue
 let deleteThumbQueue;   // QueueObject
@@ -89,8 +90,7 @@ export function resetAllQueues(): void {
   metaDone = 0;
   metaExtractionStartTime = 0;
 
-  metadataQueue = async.queue(metadataQueueRunner, 1); // 1 is the number of parallel worker functions
-                                                       // ^--- experiment with numbers to see what is fastest (try 8)
+  metadataQueue = async.queue(metadataQueueRunner, maxParallelExtractions); // number of parallel worker functions
 
   metadataQueue.drain(() => {
 
@@ -103,7 +103,9 @@ export function resetAllQueues(): void {
   thumbsDone = 0;
   thumbExtractionStartTime = 0;
 
-  thumbQueue = async.queue(thumbQueueRunner, 1); // 1 is the number of threads
+  thumbsInProgress.clear();
+
+  thumbQueue = async.queue(thumbQueueRunner, maxParallelExtractions); // number of `ffmpeg` processes at once
 
   thumbQueue.drain(() => {
 
@@ -134,6 +136,11 @@ function thumbQueueRunner(element: ImageElement, done): void {
   const screenshotOutputFolder: string = path.join(GLOBALS.selectedOutputFolder, 'vha-' + GLOBALS.hubName);
   const shouldExtractClips: boolean = GLOBALS.screenshotSettings.clipSnippets > 0;
 
+  if (thumbsInProgress.has(element.hash)) {
+    done(); // another worker is writing these very files right now
+    return;
+  }
+
   hasAllThumbs(element.hash, screenshotOutputFolder, shouldExtractClips)
     .then(() => {
       done();
@@ -141,17 +148,22 @@ function thumbQueueRunner(element: ImageElement, done): void {
     .catch(() => {
       sendCurrentProgress( // TODO check whether sending data off by 1
         thumbsDone,
-        thumbsDone + thumbQueue.length() + 1,
+        thumbsDone + thumbQueue.length() + thumbQueue.running(),
         'importingScreenshots'
       );
       thumbsDone++;
+
+      thumbsInProgress.add(element.hash);
 
       extractAll(
         element,
         GLOBALS.selectedSourceFolders[element.inputSource].path,
         screenshotOutputFolder,
         GLOBALS.screenshotSettings,
-        done
+        () => {
+          thumbsInProgress.delete(element.hash);
+          done();
+        }
       );
     });
 }
@@ -195,7 +207,7 @@ export function metadataQueueRunner(file: TempMetadataQueueObject, done): void {
     return;
   }
 
-  sendCurrentProgress(metaDone, metaDone + metadataQueue.length() + 1, 'importingMeta');
+  sendCurrentProgress(metaDone, metaDone + metadataQueue.length() + metadataQueue.running(), 'importingMeta');
   metaDone++;
 
   extractMetadataAsync(file.fullPath, GLOBALS.screenshotSettings)
