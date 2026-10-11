@@ -32,9 +32,9 @@ import { GLOBALS } from './main-globals';
 
 import type { ImageElement, ScreenshotSettings } from '../interfaces/final-object.interface';
 
-// How many videos to process at once (`ffprobe` / `ffmpeg` runs) -- half the CPU threads, between 1 and 4
+// How many videos to process at once (`ffprobe` / `ffmpeg` runs) -- half the CPU threads, between 1 and 8
 // on a network drive most of the time is spent waiting, so one at a time leaves the computer idle
-export const maxParallelExtractions: number = Math.max(1, Math.min(4, Math.floor(os.cpus().length / 2)));
+export const maxParallelExtractions: number = Math.max(1, Math.min(8, Math.floor(os.cpus().length / 2)));
 
 
 // ========================================================================================
