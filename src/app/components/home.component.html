@@ -918,6 +918,7 @@
                                        || appState.currentView === 'showClips')
                                  : folderViewNavigationPath
                                  : (appState.currentView === 'showFilmstrip' ? currentImgsPerRow + 1 : 4)
+                                 : (appState.currentView === 'showFilmstrip')
 
                 | sortingPipe : sortType : shuffleTheViewNow : (   settingsButtons['duplicateLength'].toggled
                                                                 || settingsButtons['duplicateSize'].toggled

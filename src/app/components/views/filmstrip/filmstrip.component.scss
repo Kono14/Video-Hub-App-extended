@@ -25,9 +25,9 @@
 }
 
 .folder-frame {
-  aspect-ratio: 16 / 9;
-  background-position: center;
-  background-size: cover;
+  background-position: center; // of a narrow video only the picture in the middle is shown, not the bars beside it
+  background-repeat: no-repeat;
+  background-size: auto 100%;
   flex: 0 0 auto;
   height: 100%;
 }

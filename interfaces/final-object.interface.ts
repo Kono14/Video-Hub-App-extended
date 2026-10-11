@@ -59,6 +59,7 @@ export interface ImageElement {
   deleted?: boolean;             // toggled after a successful delete of file; ImageElement removed before saving .vha2 file
   durationDisplay: string;       // displayed duration in X:XX:XX format
   fileSizeDisplay: string;       // displayed as XXXmb or X.Xgb -- also co-opted for showing number of files in a *FOLDER*
+  folderPreviews?: ImageElement[]; // only a *FOLDER* has it: the videos it shows a screenshot of, in the order of its `hash`
   index: number;                 // for the `default` sort order
   resBucket: number;             // the resolution category the video falls into (for faster sorting)
   resolution: ResolutionString;  // e.g. `720`, `1080`, `SD`, `HD`, etc

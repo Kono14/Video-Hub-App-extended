@@ -79,43 +79,39 @@ export class FolderViewPipe implements PipeTransform {
   }
 
   /**
-   * Takes ImageElement array and returns 4 hashes (or `numOfPreviews` if given)
-   * separated by `:` so the folderView has something to show!
+   * Takes ImageElement array and returns 4 videos (or `numOfPreviews` if given)
+   * so the folderView has something to show!
    * @param files
    * @param numOfPreviews
+   * @param fillRow       `numOfPreviews` is the width of a row, counted in 16:9 screenshots: return enough videos to
+   *                      fill it -- a video of a narrower shape takes up less of the row, so there may be more of them
    */
-  extractFourPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
-    let hashes = '';
-    if (files.length > numOfPreviews && this.settingsButtons['randomizeFoldersScreenshots'].toggled) {
-      hashes = this.extractRandomPreviewHashes(files, numOfPreviews);
-    } else {
-      hashes = this.extractFirstFourPreviewHashes(files, numOfPreviews);
+  extractFourPreviews(files: ImageElement[], numOfPreviews: number = 4, fillRow: boolean = false): ImageElement[] {
+    const random: boolean = files.length > numOfPreviews && this.settingsButtons['randomizeFoldersScreenshots'].toggled;
+    const pool: ImageElement[] = random ? [...files] : []; // to draw from, so that no video is picked twice
+    const previews: ImageElement[] = [];
+    let spaceLeft: number = numOfPreviews;
+
+    while (spaceLeft > 0 && previews.length < files.length && previews.length < numOfPreviews * 4) {
+      const next: ImageElement = random
+        ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
+        : files[previews.length];
+
+      previews.push(next);
+      spaceLeft -= fillRow ? this.widthInRow(next) : 1;
     }
-    if (hashes.charAt(0) === ':') {
-      hashes = hashes.slice(1);
-    }
-    return hashes;
+
+    return previews;
   }
 
-  extractFirstFourPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
-    let hashes = '';
-    for (let n = 0; n < numOfPreviews; n++) {
-      if (files[n]) {
-        hashes += ':' + files[n].hash;
-      } else {
-        break;
-      }
-    }
-    return hashes;
-  }
+  /**
+   * How much room the screenshot of a video takes up in a row, compared to a 16:9 screenshot
+   * @param video
+   */
+  widthInRow(video: ImageElement): number {
+    const shape: number = video.width / video.height;
 
-  extractRandomPreviewHashes(files: ImageElement[], numOfPreviews: number = 4): string {
-    let hashes = '';
-    for (let index = 0; index < numOfPreviews; index++) {
-      const randomIndex = Math.floor(Math.random() * files.length);
-      hashes += ':' + files.splice(randomIndex, 1)[0].hash;
-    }
-    return hashes;
+    return (shape > 0 && shape < 16 / 9) ? shape / (16 / 9) : 1;
   }
 
 
@@ -137,8 +133,11 @@ export class FolderViewPipe implements PipeTransform {
    * @param render      whether to insert folders
    * @param prefixPath  current folder in view (full path to CWD - "current working directory")
    * @param numOfPreviews how many videos of a folder to show a screenshot of (the filmstrip view needs more than 4)
+   * @param fillRow     whether `numOfPreviews` is the width of a row to fill, rather than a number of videos
    */
-  transform(finalArray: ImageElement[], render: boolean, prefixPath?: string, numOfPreviews: number = 4): ImageElement[] {
+  transform(
+    finalArray: ImageElement[], render: boolean, prefixPath?: string, numOfPreviews: number = 4, fillRow: boolean = false
+  ): ImageElement[] {
 
     if (render) {
 
@@ -230,6 +229,8 @@ export class FolderViewPipe implements PipeTransform {
 
           const folderProperties: FolderProperties = this.determineFolderProperties(value);
 
+          const previews: ImageElement[] = this.extractFourPreviews(value, numOfPreviews, fillRow);
+
           const folderWithStuff: ImageElement = NewImageElement();
 
           folderWithStuff.birthtime       = folderProperties.birthtime;
@@ -238,7 +239,8 @@ export class FolderViewPipe implements PipeTransform {
           folderWithStuff.fileName        = key.replace('/', '');
           folderWithStuff.fileSize        = folderProperties.byteSize;
           folderWithStuff.fileSizeDisplay = value.length.toString(), // indicates the number of files in the folder!
-          folderWithStuff.hash            = this.extractFourPreviewHashes(value, numOfPreviews);
+          folderWithStuff.folderPreviews  = previews;
+          folderWithStuff.hash            = previews.map((video: ImageElement) => video.hash).join(':');
           folderWithStuff.index           = -1, // always show at the top (but after the `UP` folder) in the default view
           folderWithStuff.lastPlayed      = folderProperties.lastPlayed;
           folderWithStuff.mtime           = folderProperties.mtime;

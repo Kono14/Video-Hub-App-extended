@@ -23,22 +23,26 @@
 
   } @else {
 
-    @if (folderThumbPaths().length === 1) {
+    @if (folderFrames().length === 1) {
 
       <!-- show the filmstrip if there is only one video inside the folder -->
-      <div
-        class="folder-single"
-        [ngStyle]="{ 'background-image': 'url(' + fullFilePath + ')' }"
-      ></div>
+      @if (frameWidth()) {
+        <ng-container *ngTemplateOutlet="narrowFrames" />
+      } @else {
+        <div
+          class="folder-single"
+          [ngStyle]="{ 'background-image': 'url(' + fullFilePath + ')' }"
+        ></div>
+      }
 
     } @else {
 
       <!-- one screenshot from each of the first videos in the folder -->
       <div class="folder-frames">
-        @for (thumbPath of folderThumbPaths(); track $index) {
+        @for (frame of folderFrames(); track $index) {
           <div
             class="folder-frame"
-            [ngStyle]="{ 'background-image': 'url(' + thumbPath + ')' }"
+            [ngStyle]="{ 'background-image': 'url(' + frame.path + ')', width: frame.width + 'px' }"
           ></div>
         }
       </div>
@@ -102,20 +106,7 @@
       }"
   >
     @if (frameWidth()) {
-      <!-- a video narrower than 16:9: every screenshot on its own, without the black bars left and right of it -->
-      <div class="narrow-frames" [ngStyle]="{ 'margin-left': '-' + filmXoffset + 'px' }">
-        @for (offset of frameOffsets(); track $index) {
-          <div
-            class="narrow-frame"
-            [ngStyle]="{
-                'background-image': 'url(' + fullFilePath + ')',
-                'background-position-x': '-' + offset + 'px',
-                'background-size': 'auto ' + imgHeight() + 'px',
-                width: frameWidth() + 'px'
-              }"
-          ></div>
-        }
-      </div>
+      <ng-container *ngTemplateOutlet="narrowFrames" />
     }
 
     @if (showMeta()) {
@@ -163,5 +154,22 @@
   }
 
 } <!-- end of the @else -- the INDIVIDUAL FILE TEMPLATE -->
+
+<!-- the filmstrip of a video narrower than 16:9: every screenshot on its own, without the black bars left and right of it -->
+<ng-template #narrowFrames>
+  <div class="narrow-frames" [ngStyle]="{ 'margin-left': '-' + filmXoffset + 'px' }">
+    @for (offset of frameOffsets(); track $index) {
+      <div
+        class="narrow-frame"
+        [ngStyle]="{
+            'background-image': 'url(' + fullFilePath + ')',
+            'background-position-x': '-' + offset + 'px',
+            'background-size': 'auto ' + imgHeight() + 'px',
+            width: frameWidth() + 'px'
+          }"
+      ></div>
+    }
+  </div>
+</ng-template>
 
 </div>

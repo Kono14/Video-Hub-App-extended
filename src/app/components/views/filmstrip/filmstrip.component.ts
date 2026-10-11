@@ -9,6 +9,11 @@ import type { ImageElement } from '../../../../../interfaces/final-object.interf
 import { ImageElementService } from './../../../services/image-element.service';
 import type { RightClickEmit, VideoClickEmit } from '../../../../../interfaces/shared-interfaces';
 
+interface FolderFrame {
+  path: string;  // to the thumbnail of a video in the folder
+  width: number; // in pixels
+}
+
 @Component({
   standalone: false,
   selector: 'app-filmstrip-item',
@@ -41,30 +46,34 @@ export class FilmstripComponent implements OnInit {
   readonly showMeta = input<boolean>();
   readonly showFavorites = input<boolean>();
 
-  // a folder carries the hashes of several of its videos, separated by `:`
-  readonly folderThumbPaths = computed<string[]>(() => {
-    return this.video().hash.split(':').filter((hash) => hash).map((hash) => {
-      return this.filePathService.createFilePath(this.folderPath(), this.hubName(), 'thumbnails', hash);
+  // a folder carries some of its videos: one screenshot of each is shown, as wide as the picture in it
+  readonly folderFrames = computed<FolderFrame[]>(() => {
+    return (this.video().folderPreviews || []).map((video: ImageElement) => {
+      return {
+        path: this.filePathService.createFilePath(this.folderPath(), this.hubName(), 'thumbnails', video.hash),
+        width: this.pictureWidth(video) || this.imgHeight() * (16 / 9)
+      };
     });
+  });
+
+  // the video the filmstrip belongs to: a folder with a single video inside shows the filmstrip of that video
+  readonly filmstripVideo = computed<ImageElement>(() => {
+    const folderPreviews: ImageElement[] = this.video().folderPreviews;
+
+    return (folderPreviews && folderPreviews.length === 1) ? folderPreviews[0] : this.video();
   });
 
   // Every screenshot of a filmstrip sits in a 16:9 cell: a video of a narrower shape (filmed upright, or 4:3) has
   // black bars left and right of each of them. For such a video this is the width of the picture inside a cell,
   // so that the screenshots can be shown side by side without the bars -- 0 for a video that fills its cells
-  readonly frameWidth = computed<number>(() => {
-    const video: ImageElement = this.video();
-    const cellWidth = this.imgHeight() * (16 / 9);
-    const pictureWidth = Math.floor(this.imgHeight() * video.width / video.height) - 2; // the edge of a bar is not sharp
-
-    return (video.width > 0 && video.height > 0 && pictureWidth > 0 && pictureWidth < cellWidth - 4) ? pictureWidth : 0;
-  });
+  readonly frameWidth = computed<number>(() => this.pictureWidth(this.filmstripVideo()));
 
   // where the picture of each screenshot starts inside the filmstrip image
   readonly frameOffsets = computed<number[]>(() => {
     const cellWidth = this.imgHeight() * (16 / 9);
     const barWidth = (cellWidth - this.frameWidth()) / 2;
 
-    return Array.from({ length: this.video().screens }, (_, index) => index * cellWidth + barWidth);
+    return Array.from({ length: this.filmstripVideo().screens }, (_, index) => index * cellWidth + barWidth);
   });
 
   fullFilePath = '';
@@ -78,6 +87,17 @@ export class FilmstripComponent implements OnInit {
 
   ngOnInit() {
     this.fullFilePath = this.filePathService.createFilePath(this.folderPath(), this.hubName(), 'filmstrips', this.video().hash);
+  }
+
+  /**
+   * The width of the picture inside a screenshot of the video -- 0 if the picture fills the 16:9 cell
+   * @param video
+   */
+  pictureWidth(video: ImageElement): number {
+    const cellWidth = this.imgHeight() * (16 / 9);
+    const pictureWidth = Math.floor(this.imgHeight() * video.width / video.height) - 2; // the edge of a bar is not sharp
+
+    return (video.width > 0 && video.height > 0 && pictureWidth > 0 && pictureWidth < cellWidth - 4) ? pictureWidth : 0;
   }
 
   updateFilmXoffset(mouseMove: PointerEvent) {
