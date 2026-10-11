@@ -542,6 +542,36 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
 }
 
 /**
+ * Work around a bug of `chokidar` (4.0.3, and 5.0.0 as well) that strikes when the folder watched is the root
+ * of a drive, like `D:\`
+ *
+ * A drive root is its own parent folder, so `chokidar` lists it inside itself, under an empty name. Once it has
+ * read the root it finds no entry of that name there and takes the root for deleted -- along with everything it
+ * has come across by then: it reports those files as deleted and no longer tracks them, so the next real
+ * deletion among them goes unnoticed. At one start of the app that were 369 videos, the first 16 to 48 of
+ * twelve folders
+ *
+ * `_remove` is internal to `chokidar` -- should it ever go, this does nothing
+ * @param watcher
+ */
+function ignoreRemovalOfRoot(watcher: FSWatcher): void {
+  const internals: any = watcher;
+
+  if (typeof internals._remove !== 'function') {
+    return;
+  }
+
+  const remove = internals._remove.bind(watcher);
+
+  internals._remove = (directory: string, item: string, isDirectory?: boolean): void => {
+    if (item === '') {
+      return; // "the folder inside itself" -- no file or folder has an empty name
+    }
+    remove(directory, item, isDirectory);
+  };
+}
+
+/**
  * Watch a folder on a local drive with `chokidar`
  * @param inputDir    -- full path to input folder
  * @param inputSource -- the number corresponding to the `inputSource` in ImageElement -- must be set!
@@ -575,6 +605,7 @@ function watchWithChokidar(inputDir: string, inputSource: number): void {
   };
 
   const watcher: FSWatcher = chokidar.watch(inputDir, watcherConfig);
+  ignoreRemovalOfRoot(watcher);
 
   const allAcceptableFiles: string[] = [...acceptableFiles, ...GLOBALS.additionalExtensions];
 
