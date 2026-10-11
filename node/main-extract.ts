@@ -333,7 +333,8 @@ export function extractAll(
         return true;
       } else {
         return extractFilmstrip(                                                          // (5)
-          pathToVideo, duration, screenshotHeight, numOfScreens, filmstripSavePath, maxRunTime
+          pathToVideo, duration, screenshotHeight, numOfScreens, filmstripSavePath, maxRunTime,
+          isLargerThanFullHd(currentElement)
         );
       }
     })
@@ -456,9 +457,22 @@ function extractThumbnail(
 }
 
 /**
+ * Whether the picture of a video is larger than Full HD (1920 x 1080; 1088 is what some encoders store)
+ * @param video
+ */
+function isLargerThanFullHd(video: ImageElement): boolean {
+  return video.width * video.height > 1920 * 1088;
+}
+
+/**
  * Extract the filmstrip
  * The usual way reads every screenshot in one `ffmpeg` run -- fast, but a single damaged spot fails the whole strip
  * and a video that is slow to seek in runs out of time. If no filmstrip comes out, extract it frame by frame.
+ *
+ * A large video is extracted frame by frame from the start. The one run opens the video once per screenshot,
+ * and every one of these decoders holds dozens of pictures in memory: 8 GB for a 4K video with 10 bit colour.
+ * Eight of them at once had a computer with 32 GB swapping, and it got through 8 videos a minute.
+ * Frame by frame takes a tenth of that memory and, the processor being the limit for such videos, as long
  *
  * @param pathToVideo
  * @param duration
@@ -466,6 +480,7 @@ function extractThumbnail(
  * @param numberOfScreenshots
  * @param savePath
  * @param maxRunTime
+ * @param largeVideo           -- its picture is larger than Full HD
  */
 function extractFilmstrip(
   pathToVideo: string,
@@ -474,7 +489,14 @@ function extractFilmstrip(
   numberOfScreenshots: number,
   savePath: string,
   maxRunTime: ExtractionDurations,
+  largeVideo: boolean,
 ): Promise<boolean> {
+
+  if (largeVideo) {
+    return extractFilmstripFrameByFrame(
+      pathToVideo, duration, screenshotHeight, numberOfScreenshots, savePath, maxRunTime
+    );
+  }
 
   const ffmpegArgs: string[] = generateScreenshotStripArgs(
     pathToVideo, duration, screenshotHeight, numberOfScreenshots, savePath
