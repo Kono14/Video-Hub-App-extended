@@ -812,6 +812,10 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
       this.folderViewNavigationPath = '';
 
+      // the list of screenshots on disk was made for the hub that was open before
+      this.existingPreviews = null;
+      this.settingsButtons['showOnlyMissingPreviews'].toggled = false;
+
       this.manualTagsService.removeAllTags();
       this.manualTagsService.populateManualTagsService(finalObject.images);
       this.manualTagsService.loadTagColors(finalObject.tagColors);
