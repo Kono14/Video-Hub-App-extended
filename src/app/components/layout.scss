@@ -197,8 +197,8 @@
   cursor: pointer;
   font-size: 10px;
   position: fixed;
-  right: 42px;
-  top: 32px;
+  right: 124px; // left of the numbers beside the progress circle
+  top: 28px;
   z-index: 9999;
 
   &:hover {

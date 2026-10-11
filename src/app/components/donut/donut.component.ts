@@ -9,8 +9,10 @@ import { Component, input } from '@angular/core';
 export class DonutComponent {
 
   readonly darkMode = input<boolean>();
+  readonly left = input<number>();      // how many videos are still to be done
+  readonly leftLabel = input<string>(); // the word to follow that number
   readonly percent = input<number>();
-  readonly timeRemaining = input<number>();
+  readonly perMinute = input<number>(); // 0 == not known yet
 
   constructor() { }
 

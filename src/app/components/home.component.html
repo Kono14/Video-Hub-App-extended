@@ -38,8 +38,10 @@
 @if (importStage !== 'done' && !settingsButtons['hideTop'].toggled) {
   <app-donut
     class="screenShotProgressPercent"
+    [left]="extractionLeft"
+    [leftLabel]="'WIZARD.stillToImport' | translate"
     [percent]="extractionPercent"
-    [timeRemaining]="timeExtractionRemaining"
+    [perMinute]="extractionPerMinute"
     [darkMode]="settingsButtons['darkMode'].toggled"
     @donutAppear
    />

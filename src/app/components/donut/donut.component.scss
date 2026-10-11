@@ -12,15 +12,6 @@ $donut-border-width: 0.5em;
   padding: 0;
   position: relative;
   width: $donut-width;
-
-  span {
-    display: block;
-    font-size: 9px;
-    position: absolute;
-    text-align: center;
-    width: 100%;
-    z-index: 2;
-  }
 }
 
 .left-half-clipper {
@@ -68,8 +59,12 @@ $donut-border-width: 0.5em;
   display: none;
 }
 
-.time-remaining {
+.progress-numbers {
   font-size: 10px;
+  line-height: 14px;
   position: absolute;
-  transform: translate(-31px, 19px);
+  right: 40px; // left of the circle
+  text-align: right;
+  top: 2px;
+  white-space: nowrap;
 }

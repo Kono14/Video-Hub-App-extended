@@ -165,7 +165,10 @@ export class HomeComponent implements OnInit, AfterViewInit {
   // Import / extraction progress
   // ------------------------------------------------------------------------
 
+  extractionLeft = 0;      // how many videos still wait for their metadata or screenshots
   extractionPercent = 1;
+  extractionPerMinute = 0; // rough pace of the import -- 0 as long as it is not known
+  extractionSamples: { time: number, current: number }[] = []; // recent progress, to tell the pace from
   importStage: ImportStage = 'done';
   progressString = '';
 
@@ -318,9 +321,6 @@ export class HomeComponent implements OnInit, AfterViewInit {
   shuffleTheViewNow = 0; // dummy number to force re-shuffle current view
 
   sortType: SortType = 'default';
-
-  timeExtractionStarted: number;   // time remaining calculator
-  timeExtractionRemaining: number; // time remaining calculator
 
   deletePipeTrigger = signal(false); // to force deletePipe to update
 
@@ -731,28 +731,16 @@ export class HomeComponent implements OnInit, AfterViewInit {
       stage: ImportStage
     ) => {
 
+      this.updateExtractionPace(current, stage);
       this.importStage = stage;
 
       if (this.isFirstRunEver) {
         this.showFirstRunMessage();
       }
 
-      if (current === 1) {
-        this.timeExtractionStarted = new Date().getTime();
-      }
-
-      if (current > 3) {
-        const thisInstant = new Date().getTime();
-        const timeElapsed = thisInstant - this.timeExtractionStarted;
-        this.timeExtractionRemaining = Math.round((total - current) * (timeElapsed / current) / 1000); // convert MS to seconds
-        if (this.timeExtractionRemaining < 1) {
-          this.timeExtractionRemaining = 0;
-        }
-      }
-
-      const percentProgress: number = Math.round(100 * current / total);
-      this.progressString = 'loading - ' + percentProgress + '%';
-      this.extractionPercent = percentProgress;
+      this.extractionLeft = Math.max(0, total - current);
+      this.extractionPercent = Math.round(100 * current / total);
+      this.progressString = this.extractionLeft + ' ' + this.translate.instant('WIZARD.stillToImport');
 
       this.cd.detectChanges(); // seems needed to update the donut
     });
@@ -1132,6 +1120,41 @@ export class HomeComponent implements OnInit, AfterViewInit {
     this.sourceFolderService.selectedSourceFolder = this.wizard.selectedSourceFolder;
     this.appState.selectedOutputFolder = this.wizard.selectedOutputFolder;
     (window as any).myElectron.sendToMain('start-the-import', this.wizard);
+  }
+
+  /**
+   * Work out how many videos per minute the import gets done, from its progress over the last two minutes:
+   * a pace since the start would take long to follow when videos get larger, or the drive they are on gets busy
+   * @param current - the number of videos done so far, as node reports it
+   * @param stage   - `ImportStage` type
+   */
+  updateExtractionPace(current: number, stage: ImportStage): void {
+    const paceWindow = 2 * 60 * 1000;
+    const samples = this.extractionSamples;
+    const now: number = Date.now();
+
+    if (stage !== this.importStage || (samples.length && current < samples[samples.length - 1].current)) {
+      samples.length = 0; // another stage counts other things, and a new import starts from the beginning
+      this.extractionPerMinute = 0;
+    }
+
+    if (stage === 'done') {
+      return;
+    }
+
+    if (!samples.length || now - samples[samples.length - 1].time >= 1000) {
+      samples.push({ time: now, current: current });
+    }
+
+    while (samples.length > 2 && now - samples[1].time >= paceWindow) {
+      samples.shift();
+    }
+
+    const timeSpan: number = now - samples[0].time;
+
+    if (timeSpan >= 10 * 1000) { // a few seconds say nothing yet
+      this.extractionPerMinute = Math.round((current - samples[0].current) / (timeSpan / 60000));
+    }
   }
 
   public cancelCurrentImport(): void {
