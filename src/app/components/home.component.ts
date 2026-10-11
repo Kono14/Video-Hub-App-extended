@@ -168,7 +168,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
   extractionLeft = 0;      // how many videos still wait for their metadata or screenshots
   extractionPercent = 1;
   extractionPerMinute = 0; // rough pace of the import -- 0 as long as it is not known
-  extractionSamples: { time: number, current: number }[] = []; // recent progress, to tell the pace from
+  // recent progress of each stage of the import, to tell the pace from
+  extractionSamples: Map<ImportStage, { time: number, current: number }[]> = new Map();
   extractionTimeLeft = ''; // how long the import still takes and when it ends -- empty as long as it is not known
   importStage: ImportStage = 'done';
   progressString = '';
@@ -1134,17 +1135,24 @@ export class HomeComponent implements OnInit, AfterViewInit {
   updateExtractionPace(current: number, total: number, stage: ImportStage): void {
     const paceWindow = 2 * 60 * 1000;      // the pace shown is that of the last two minutes
     const estimateWindow = 10 * 60 * 1000; // the time left comes from a longer stretch, so it does not jump with every large video
-    const samples = this.extractionSamples;
     const now: number = Date.now();
 
-    if (stage !== this.importStage || (samples.length && current < samples[samples.length - 1].current)) {
-      samples.length = 0; // another stage counts other things, and a new import starts from the beginning
-      this.extractionPerMinute = 0;
-      this.extractionTimeLeft = '';
+    if (stage === 'done') {
+      this.forgetExtractionPace();
+      return;
     }
 
-    if (stage === 'done') {
-      return;
+    // Each stage counts other things, so each has its own progress. They take turns: a video that shows up
+    // while screenshots are extracted has its metadata read at once -- that must not start the pace of the
+    // screenshots from the beginning
+    if (!this.extractionSamples.has(stage)) {
+      this.extractionSamples.set(stage, []);
+    }
+    const samples = this.extractionSamples.get(stage);
+    const latest = samples[samples.length - 1];
+
+    if (latest && (current < latest.current || now - latest.time > paceWindow)) {
+      samples.length = 0; // the count started from the beginning, or this stage has not been at work for a while
     }
 
     if (!samples.length || now - samples[samples.length - 1].time >= 1000) {
@@ -1177,6 +1185,15 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Forget the pace of the import: it is over, or a new one starts
+   */
+  forgetExtractionPace(): void {
+    this.extractionSamples.forEach((samples) => { samples.length = 0; });
+    this.extractionPerMinute = 0;
+    this.extractionTimeLeft = '';
+  }
+
+  /**
    * How long an import still takes and at what time it ends, e.g. `~1 h 05 min · 20:12`
    * @param minutesLeft
    */
@@ -1199,6 +1216,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
     (window as any).myElectron.sendToMain('cancel-current-import');
     setTimeout(() => {
       this.importStage = 'done';
+      this.forgetExtractionPace();
       this.cd.detectChanges();
     }, 10); // just in case delay
   }
