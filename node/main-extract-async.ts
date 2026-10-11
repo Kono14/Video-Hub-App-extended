@@ -56,6 +56,14 @@ const watcherMap:       Map<number, FSWatcher> = new Map();
 let allFoundFilesMap: Map<number, Map<string, 1>> = new Map();
 // both these numbers     ^^^^^^ match up - they refer to the same `inputSource`
 
+// Folders on a network drive are not watched with `chokidar`: it opens a watch handle for every single file,
+// one blocking network call each -- thousands of files froze the app for minutes. They are re-scanned on a timer instead
+const networkRescanInterval = 10 * 60 * 1000;
+const rescanTimerMap:   Map<number, NodeJS.Timeout> = new Map(); // key is `inputSource`
+const watchRequestMap:  Map<number, number> = new Map();         // latest request to watch each `inputSource`
+const scansInProgress:  Set<number> = new Set();                 // `inputSource` currently scanned by `fdir`
+let watchRequestCount = 0;
+
 // =====================================================================================================================
 
 // Miscellaneous
@@ -232,6 +240,11 @@ export function metadataQueueRunner(file: TempMetadataQueueObject, done): void {
  */
 function superFastSystemScan(inputDir: string, inputSource: number): void {
 
+  if (scansInProgress.has(inputSource)) {
+    return; // the previous scan of this folder is still running (slow or sleeping network drive)
+  }
+  scansInProgress.add(inputSource);
+
   GLOBALS.angularApp.sender.send('started-watching-this-dir', inputSource);
 
   metadataQueue.pause();
@@ -253,6 +266,10 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
 
     const allAcceptableFiles: string[] = [...acceptableFiles, ...GLOBALS.additionalExtensions];
 
+    const previouslyFound: Map<string, 1> = allFoundFilesMap.get(inputSource);
+    const foundNow: Map<string, 1> = new Map();
+    const newItems: TempMetadataQueueObject[] = [];
+
     files.forEach((fullPath: string) => {
 
       const parsed = path.parse(fullPath);
@@ -261,10 +278,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
         return;
       }
 
-      if (!allFoundFilesMap.has(inputSource)) {
-        allFoundFilesMap.set(inputSource, new Map());
-      }
-      allFoundFilesMap.get(inputSource).set(fullPath, 1);
+      foundNow.set(fullPath, 1);
 
       if (alreadyInAngular.has(fullPath)) {
         return;
@@ -272,23 +286,95 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
 
       const partial: string = path.relative(inputDir, parsed.dir).replace(/\\/g, '/');
 
-      const newItem: TempMetadataQueueObject = {
+      newItems.push({
         fullPath: fullPath,
         inputSource: inputSource,
         name: parsed.base,
         partialPath: '/' + partial,
-      };
-
-      metadataQueue.push(newItem);
+      });
 
     });
 
+    // A folder that had videos and now shows none is far more likely unreachable (share offline, volume
+    // not mounted) than emptied -- Angular removes from the hub whatever is missing here, so keep the old list
+    if (foundNow.size === 0 && previouslyFound && previouslyFound.size > 0) {
+      console.log('no videos found in', inputDir, '-- keeping the previous list');
+    } else {
+      if (previouslyFound) {
+        previouslyFound.forEach((value: 1, fullPath: string) => {
+          if (!foundNow.has(fullPath)) {
+            alreadyInAngular.delete(fullPath); // gone -- import it again if it ever comes back
+          }
+        });
+      }
+      allFoundFilesMap.set(inputSource, foundNow);
+      newItems.forEach((newItem: TempMetadataQueueObject) => {
+        metadataQueue.push(newItem);
+      });
+    }
+
     GLOBALS.angularApp.sender.send('all-files-found-in-dir', inputSource, allFoundFilesMap.get(inputSource));
 
-    metadataQueue.resume();
-
+  }).catch((err) => {
+    console.log('scan failed', inputDir, err);
+  }).then(() => {
+    scansInProgress.delete(inputSource);
+    resumeQueuesAfterScan();
   });
 
+}
+
+/**
+ * Resume the queues paused at the start of a scan
+ * The `thumbQueue` normally resumes when the `metadataQueue` drains -- but a scan that finds nothing new
+ * never drains it, and screenshots still waiting to be extracted would stay paused forever
+ */
+function resumeQueuesAfterScan(): void {
+  metadataQueue.resume();
+
+  if (metadataQueue.idle()) {
+    thumbQueue.resume();
+  }
+}
+
+/**
+ * Whether the folder is on a network drive: a network address or (on Windows) a drive letter mapped to one
+ * @param inputDir -- full path to input folder
+ */
+function isNetworkFolder(inputDir: string): Promise<boolean> {
+  // WARNING - there are other ways to have a network address that are not accounted here !!!
+  if (inputDir.startsWith('//') || inputDir.startsWith('\\\\')) {
+    return Promise.resolve(true);
+  }
+
+  if (process.platform !== 'win32') {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    // a mapped drive letter resolves to its network address, which starts with two backslashes
+    fs.realpath.native(inputDir, (err, resolvedPath: string) => {
+      resolve(!!err || resolvedPath.startsWith('\\\\')); // when in doubt re-scan, it works for any folder
+    });
+  });
+}
+
+/**
+ * Keep a folder on a network drive up to date: scan it now and again every `networkRescanInterval`
+ * @param inputDir    -- full path to input folder
+ * @param inputSource -- the number corresponding to the `inputSource` in ImageElement -- must be set!
+ */
+function watchByRescanning(inputDir: string, inputSource: number): void {
+
+  superFastSystemScan(inputDir, inputSource);
+
+  rescanTimerMap.set(inputSource, setInterval(() => {
+    fs.access(inputDir, fs.constants.R_OK, (err: any) => {
+      if (!err) { // else not reachable right now -- try again next time
+        superFastSystemScan(inputDir, inputSource);
+      }
+    });
+  }, networkRescanInterval));
 }
 
 /**
@@ -305,6 +391,30 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
     return;
   }
 
+  const watchRequest: number = ++watchRequestCount;
+  watchRequestMap.set(inputSource, watchRequest);
+
+  isNetworkFolder(inputDir).then((onNetwork: boolean) => {
+    if (watchRequestMap.get(inputSource) !== watchRequest) {
+      return; // stopped or restarted meanwhile
+    }
+    if (onNetwork) {
+      watchByRescanning(inputDir, inputSource);
+    } else {
+      watchWithChokidar(inputDir, inputSource);
+    }
+  });
+}
+
+/**
+ * Watch a folder on a local drive with `chokidar`
+ * @param inputDir    -- full path to input folder
+ * @param inputSource -- the number corresponding to the `inputSource` in ImageElement -- must be set!
+ */
+function watchWithChokidar(inputDir: string, inputSource: number): void {
+
+  const persistent = true;
+
   const t0 = performance.now();
 
   console.log('================================================================');
@@ -313,10 +423,6 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
   console.log('starting watcher ', inputSource, typeof(inputSource), inputDir);
 
   GLOBALS.angularApp.sender.send('started-watching-this-dir', inputSource);
-
-  // WARNING - there are other ways to have a network address that are not accounted here !!!
-  const isNetworkAddress: boolean =    inputDir.startsWith('//')
-                                    || inputDir.startsWith('\\\\');
 
   const rootPath: string = path.resolve(inputDir);
 
@@ -331,7 +437,6 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
                                                   && path.resolve(itemPath) !== rootPath,
     ignorePermissionErrors: true, // skip folders we may not read (e.g. `System Volume Information`, `$RECYCLE.BIN`)
     persistent: true, // NOTE: if `!persistent` we use `superFastSystemScan()` instead !!!
-    usePolling: isNetworkAddress ? true : false,
   };
 
   const watcher: FSWatcher = chokidar.watch(inputDir, watcherConfig);
@@ -388,7 +493,7 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
     .on('ready', () => {
       console.log('Finished scanning', inputSource);
 
-      metadataQueue.resume();
+      resumeQueuesAfterScan();
 
       GLOBALS.angularApp.sender.send('all-files-found-in-dir', inputSource, allFoundFilesMap.get(inputSource));
 
@@ -412,9 +517,11 @@ export function startFileSystemWatching(inputDir: string, inputSource: number, p
  */
 export function resetWatchers(finalArray: ImageElement[]): void {
 
-  // close every old watcher
-  Array.from(watcherMap.keys()).forEach((key: number) => {
-    closeWatcher(key);
+  // close every old watcher and every re-scan timer
+  [watcherMap, rescanTimerMap, watchRequestMap].forEach((map: Map<number, any>) => {
+    Array.from(map.keys()).forEach((key: number) => {
+      closeWatcher(key);
+    });
   });
 
   alreadyInAngular = new Map();
@@ -439,6 +546,11 @@ export function resetWatchers(finalArray: ImageElement[]): void {
  */
 export function closeWatcher(inputSource: number): void {
   console.log('stop watching', inputSource);
+  watchRequestMap.delete(inputSource);
+  if (rescanTimerMap.has(inputSource)) {
+    clearInterval(rescanTimerMap.get(inputSource));
+    rescanTimerMap.delete(inputSource);
+  }
   if (watcherMap.has(inputSource)) {
     console.log('closing ', inputSource);
     watcherMap.get(inputSource).close().then(() => {
