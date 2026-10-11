@@ -446,7 +446,7 @@ function extractThumbnail(
     const ffmpegArgs: string[] = extractSingleFrameArgs(pathToVideo, screenshotHeight, positions[index], savePath);
 
     return spawn_ffmpeg_and_run(ffmpegArgs, index === 0 ? maxRunTime.thumb : maxRunTime.slowFrame, 'thumb')
-      .then(() => fileHasContent(savePath))
+      .then((completed: boolean) => finishedWithOutput(completed, savePath))
       .then((extracted: boolean) => {
         return extracted ? true : removeFile(savePath).then(() => attempt(index + 1));
       });
@@ -481,7 +481,7 @@ function extractFilmstrip(
   );
 
   return spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.filmstrip, 'filmstrip')
-    .then(() => fileHasContent(savePath))
+    .then((completed: boolean) => finishedWithOutput(completed, savePath))
     .then((extracted: boolean) => {
       if (extracted) {
         return true;
@@ -529,7 +529,7 @@ function extractFilmstripFrameByFrame(
 
     return removeFile(framePaths[index]) // left over from an interrupted run -- `ffmpeg` would wait for permission to overwrite
       .then(() => spawn_ffmpeg_and_run(ffmpegArgs, maxRunTime.slowFrame, 'filmstrip frame'))
-      .then(() => fileHasContent(framePaths[index]))
+      .then((completed: boolean) => finishedWithOutput(completed, framePaths[index]))
       .then((frameExtracted: boolean) => {
         extracted[index] = frameExtracted;
         return extractFrame(index + 1);
@@ -553,7 +553,8 @@ function extractFilmstripFrameByFrame(
       }
 
       return spawn_ffmpeg_and_run(joinFramesArgs(frames, savePath), maxRunTime.filmstrip, 'filmstrip join')
-        .then(() => fileHasContent(savePath));
+        .then((completed: boolean) => finishedWithOutput(completed, savePath))
+        .then((joined: boolean) => joined ? true : removeFile(savePath).then(() => false));
     })
     .then((success: boolean) => {
       return Promise.all(framePaths.map(removeFile)).then(() => success);
@@ -664,6 +665,16 @@ function fileHasContent(pathToFile: string): Promise<boolean> {
 }
 
 /**
+ * Whether an `ffmpeg` run produced its file: it ran to the end and the file is not empty
+ * A run that was stopped at its time limit may leave a file it had only begun to write
+ * @param completed  -- what `spawn_ffmpeg_and_run` resolved with
+ * @param pathToFile -- the file `ffmpeg` was to write
+ */
+function finishedWithOutput(completed: boolean, pathToFile: string): Promise<boolean> {
+  return completed ? fileHasContent(pathToFile) : Promise.resolve(false);
+}
+
+/**
  * Remove a file if it is there; resolves either way
  * @param pathToFile string
  */
@@ -737,11 +748,16 @@ function spawn_ffmpeg_and_run(
 
     const ffmpeg_process = spawn(ffmpegPath, args);
 
+    let timedOut = false;
+
     const killProcessTimeout = setTimeout(() => {
       if (!ffmpeg_process.killed) {
+        timedOut = true;
         ffmpeg_process.kill();
         // console.log(description + ' KILLED EARLY');
-        return resolve(false);
+        // resolved on `exit` below: until the process has gone it still holds the file it was writing,
+        // which then can be neither removed nor written again -- but do not wait for it forever
+        setTimeout(() => resolve(false), 5000);
       }
     }, maxRunningTime);
 
@@ -761,7 +777,7 @@ function spawn_ffmpeg_and_run(
       clearTimeout(killProcessTimeout);
       // const t1: number = performance.now();
       // console.log(description + ' ' + Math.round(t1 - t0) + ' < ' + maxRunningTime);
-      return resolve(true);
+      return resolve(!timedOut);
     });
 
   });
