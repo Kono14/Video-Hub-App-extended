@@ -590,9 +590,11 @@ function watchWithChokidar(inputDir: string, inputSource: number): void {
       const basePath: string = GLOBALS.selectedSourceFolders[inputSource].path;
       const fullPath: string = path.join(basePath, partialFilePath);
       // `chokidar` also reports files that are still there (seen on Windows) -- removing those from the hub
-      // loses their tags and ratings, so only believe it when the file is really gone
-      fs.access(fullPath, fs.constants.F_OK, (err: any) => {
-        if (!err) {
+      // loses their tags and ratings, so only believe it when the folder no longer lists the file.
+      // Not `fs.access`: where upper and lower case do not matter it still finds a file whose name only changed
+      // case -- the old entry stayed and the new name was imported as a second video without the tags
+      findDeleted([fullPath], basePath).then((deleted: string[]) => {
+        if (!deleted.length) {
           console.log('reported as deleted but still present:', partialFilePath);
           return;
         }
