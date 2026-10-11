@@ -66,8 +66,19 @@ export class FileSearchPipe implements PipeTransform {
             // Recursive: matches any segment in the path (an ancestor at any
             // depth). Non-recursive: only the direct parent folder (last
             // segment) is checked.
-            const segments = item.partialPath.split('/').filter(Boolean);
             const term = element.toLowerCase();
+
+            // A term with a slash is a path, not a folder name -- typed that way, or added by the
+            // "view folder" right-click action after another term was already there. It can never
+            // match a single segment, so look for it in the whole path.
+            if (term.includes('/')) {
+              if (item.partialPath.toLowerCase().includes(term)) {
+                matchFound++;
+              }
+              return;
+            }
+
+            const segments = item.partialPath.split('/').filter(Boolean);
             const segmentMatches = (s: string) => strict ? s.toLowerCase() === term : s.toLowerCase().includes(term);
             const isMatch = recursive
               ? segments.some(segmentMatches)
