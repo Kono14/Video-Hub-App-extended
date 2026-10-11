@@ -201,7 +201,7 @@ export class FolderViewPipe implements PipeTransform {
         }
 
         if (pathToElementsMap.has(keyForMap)) {
-          pathToElementsMap.set(keyForMap, [...pathToElementsMap.get(keyForMap), element]);
+          pathToElementsMap.get(keyForMap).push(element); // not a copy with the element added -- that is quadratic
         } else {
           pathToElementsMap.set(keyForMap, [element]);
         }
