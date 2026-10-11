@@ -88,7 +88,6 @@ import { FolderSizePipe } from './pipes/folder-size.pipe';
 import { FolderViewPipe } from './pipes/folder-view.pipe';
 import { FuzzySearchPipe } from './pipes/fuzzy-search.pipe';
 import { HideOfflinePipe } from './pipes/hide-offline.pipe';
-import { MissingPreviewPipe } from './pipes/missing-preview.pipe';
 import { LengthFilterPipe } from './pipes/length-filter.pipe';
 import { LengthPipe } from './pipes/length.pipe';
 import { MagicSearchPipe } from './pipes/magic-search.pipe';
@@ -144,7 +143,6 @@ import { YearPipe } from './pipes/year.pipe';
     FullViewComponent,
     FuzzySearchPipe,
     HideOfflinePipe,
-    MissingPreviewPipe,
     HomeComponent,
     IconComponent,
     LengthFilterPipe,
