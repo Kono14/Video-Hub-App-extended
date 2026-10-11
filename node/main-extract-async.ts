@@ -64,6 +64,10 @@ const watchRequestMap:  Map<number, number> = new Map();         // latest reque
 const scansInProgress:  Set<number> = new Set();                 // `inputSource` currently scanned by `fdir`
 let watchRequestCount = 0;
 
+// Goes up whenever a hub is opened: a scan may still be running then (slow network drive), and what it
+// finds belongs to the hub it was started for -- same `inputSource` number, different folder
+let hubGeneration = 0;
+
 // Windows system folders that are never scanned -- a deleted video in the recycle bin is not part of the collection
 const systemFolders: string[] = ['$recycle.bin', 'system volume information'];
 
@@ -255,6 +259,8 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
   }
   scansInProgress.add(inputSource);
 
+  const generation: number = hubGeneration;
+
   GLOBALS.angularApp.sender.send('started-watching-this-dir', inputSource);
 
   metadataQueue.pause();
@@ -268,6 +274,10 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
   const t0 = performance.now(); // LOGGING
 
   crawler.withPromise().then((files: string[]) => {
+
+    if (generation !== hubGeneration) {
+      return; // another hub was opened meanwhile
+    }
 
     // LOGGING =====================================================================================
     logPerformance('scan took ', t0);
@@ -308,6 +318,9 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
   }).catch((err) => {
     console.log('scan failed', inputDir, err);
   }).then(() => {
+    if (generation !== hubGeneration) {
+      return; // the queues and `scansInProgress` now belong to the hub opened meanwhile
+    }
     scansInProgress.delete(inputSource);
     resumeQueuesAfterScan();
   });
@@ -326,6 +339,7 @@ function superFastSystemScan(inputDir: string, inputSource: number): void {
  */
 function reportFilesFound(inputDir: string, inputSource: number, foundNow: Map<string, 1>): Promise<void> {
 
+  const generation: number = hubGeneration;
   const missing: string[] = [];
 
   alreadyInAngular.forEach((source: number, fullPath: string) => {
@@ -338,6 +352,10 @@ function reportFilesFound(inputDir: string, inputSource: number, foundNow: Map<s
   const nothingFound: boolean = foundNow.size === 0 && missing.length > 0;
 
   return (nothingFound ? Promise.resolve<string[]>([]) : findDeleted(missing, inputDir)).then((deleted: string[]) => {
+
+    if (generation !== hubGeneration) {
+      return; // another hub was opened while the folders were checked
+    }
 
     const deletedSet: Set<string> = new Set(deleted);
 
@@ -638,6 +656,9 @@ export function resetWatchers(finalArray: ImageElement[]): void {
       closeWatcher(key);
     });
   });
+
+  hubGeneration++;
+  scansInProgress.clear(); // a scan still running is for the previous hub -- it must not hold up this one
 
   alreadyInAngular = new Map();
 
