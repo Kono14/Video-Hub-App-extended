@@ -10,6 +10,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { VirtualScrollerComponent } from '@iharbeck/ngx-virtual-scroller';
 
 // Services
+import { ArtistNamesService } from './tags-auto/artist-names.service';
 import { AutoTagsSaveService } from './tags-auto/tags-save.service';
 import { FilePathService } from './views/file-path.service';
 import { ImageElementService } from '../services/image-element.service';
@@ -435,6 +436,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
   constructor(
     private http: HttpClient,
+    public artistNamesService: ArtistNamesService,
     public autoTagsSaveService: AutoTagsSaveService,
     public cd: ChangeDetectorRef,
     public filePathService: FilePathService,
@@ -767,6 +769,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
     ) => {
 
       this.stopServer();
+
+      this.artistNamesService.learn(finalObject.images); // before the videos are shown with their tags
 
       // console.log('input dirs', finalObject.inputDirs);
       // reset to initial

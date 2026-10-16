@@ -2,6 +2,7 @@ import type { PipeTransform } from '@angular/core';
 import { Pipe } from '@angular/core';
 
 import { autoFileTagsRegex } from './autotags.service';
+import { ArtistNamesService } from './artist-names.service';
 import { ManualTagsService } from '../tags-manual/manual-tags.service';
 
 import { Colors } from '../../common/colors';
@@ -14,7 +15,10 @@ import type { Tag } from '../../../../interfaces/shared-interfaces';
 })
 export class TagsDisplayPipe implements PipeTransform {
 
-  constructor(private manualTagsService: ManualTagsService) { }
+  constructor(
+    private artistNamesService: ArtistNamesService,
+    private manualTagsService: ManualTagsService
+  ) { }
 
   transform(
     video: ImageElement,
@@ -42,6 +46,18 @@ export class TagsDisplayPipe implements PipeTransform {
     }
 
     if (autoFileTags) {
+      // the name of a performer as a whole, before its single words
+      this.artistNamesService.namesIn(video.cleanName).forEach((name: string) => {
+        if (!alreadyAdded.has(name)) {
+          tags.push({
+            name: name,
+            colour: Colors.autoFileTags,
+            removable: false
+          });
+          alreadyAdded.add(name);
+        }
+      });
+
       const cleanedFileNameAsArray: string[] = video.cleanName.toLowerCase().match(autoFileTagsRegex) || [];
       cleanedFileNameAsArray.forEach(word => {
         if (word.length >= 3 && !alreadyAdded.has(word)) { // TODO - fix hardcoding ?
