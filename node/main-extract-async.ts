@@ -255,6 +255,7 @@ export function metadataQueueRunner(file: TempMetadataQueueObject, done): void {
       sendNewVideoMetadata(imageElement);
       done();
     }, () => {
+      console.log('could not read, skipped:', file.fullPath);
       done(); // error, just continue
     });
 

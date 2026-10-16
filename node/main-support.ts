@@ -11,7 +11,7 @@ import { GLOBALS } from './main-globals'; // TODO -- eliminate dependence on `GL
 
 import * as path from 'path';
 
-const exec = require('child_process').exec;
+const execFile = require('child_process').execFile;
 const ffprobePath = require('@ffprobe-installer/ffprobe').path.replace('app.asar', 'app.asar.unpacked');
 const fs = require('fs');
 const hash = require('object-hash');
@@ -545,9 +545,12 @@ export function extractMetadataAsync(
   screenshotSettings: ScreenshotSettings,
 ): Promise<ImageElement> {
   return new Promise((resolve, reject) => {
-    const ffprobeCommand = '"' + ffprobePath + '" -of json -show_streams -show_format -select_streams V "' + path.normalize(filePath) + '"';
+    // Without a shell: every file name is read as it is (`cmd.exe` replaces `%NAME%` even inside quotes,
+    // a shell on Linux and macOS `$` and backticks), and no shell is started for every video.
+    // A time limit, so a file that never answers (a network drive that hangs) can't hold up the scan
+    const ffprobeArgs: string[] = ['-of', 'json', '-show_streams', '-show_format', '-select_streams', 'V', path.normalize(filePath)];
 
-    exec(ffprobeCommand, (err, data, stderr) => {
+    execFile(ffprobePath, ffprobeArgs, { timeout: 60000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, data, stderr) => {
       if (err) {
         reject();
       } else {
