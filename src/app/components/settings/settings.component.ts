@@ -37,6 +37,7 @@ export class SettingsComponent implements OnInit, OnChanges {
 
   @Input() appState;
   readonly demo = input();
+  readonly displayVersion = input();
   readonly latestVersionAvailable = input();
   readonly settingTabToShow = input();
   @Input() settingsButtons: SettingsButtonsType;

@@ -289,7 +289,7 @@
     </div>
 
     <div class="app-version">
-      <span>v{{ versionNumber() }} {{ demo() ? ' DEMO - limited to 50 video files' : '' }}</span>
+      <span>v{{ displayVersion() }} {{ demo() ? ' DEMO - limited to 50 video files' : '' }}</span>
       <img width="30px" height="30px" src="./assets/logo.png">
     @switch (latestVersionAvailable()) {
       @case (undefined) {

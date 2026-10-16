@@ -17,6 +17,7 @@ export class TitleBarComponent {
 
   readonly appState = input<AppStateInterface>();
   readonly demo = input<boolean>();
+  readonly displayVersion = input<string>();
   readonly importStage = input();
   readonly macVersion = input<boolean>();
   readonly progressString = input();

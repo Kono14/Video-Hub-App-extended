@@ -34,6 +34,7 @@
     "check": "npm run check:tsc && npm run check:lint",
     "check:lint": "tslint --project ./tsconfig.json && tslint --project ./tsconfig-serve.json && tslint --project ./tsconfig.worker.json",
     "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File ./bin/deploy.ps1",
+    "build:installer": "node bin/build-installer.js",
     "check:tsc": "tsc --project ./tsconfig.json --noEmit && tsc --project ./tsconfig-serve.json --noEmit && tsc --project ./tsconfig.worker.json --noEmit",
     "hasRemote": "sh ./bin/hasRemoteCheck.sh",
     "electron": "npm run hasRemote && npm run build:prod && electron-builder build && npm run buildsize",

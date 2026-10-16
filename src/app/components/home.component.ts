@@ -135,7 +135,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
   demo = GLOBALS.demo;
   demoSavingDisabled = false;
   macVersion = GLOBALS.macVersion;
-  versionNumber = GLOBALS.version;
+  versionNumber = GLOBALS.version; // the version of the app this fork is built on -- compared with the newest release
+  displayVersion = GLOBALS.version + '.' + GLOBALS.forkBuild; // the build that runs, e.g. 3.3.0.1
 
   vhaFileHistory: HistoryItem[] = [];
 

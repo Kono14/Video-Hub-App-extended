@@ -70,7 +70,7 @@ if (-not $SkipBuild) {
     Push-Location $projectRoot
     try {
       Invoke-Native 'npm.cmd' @('run', 'build:prod')
-      Invoke-Native 'npx.cmd' @('electron-builder', 'build', '--win', 'nsis', "-c.directories.output=$OutputDir")
+      Invoke-Native 'node' @('bin/build-installer.js', $OutputDir)
     } finally {
       Pop-Location
     }
@@ -90,6 +90,7 @@ if (-not $installer) {
 }
 
 Write-Host "Installer: $($installer.FullName)  ($($installer.LastWriteTime.ToString('yyyy-MM-dd HH:mm')))"
+Write-Host "Version:   $($installer.VersionInfo.FileVersion)" -ForegroundColor Green
 
 # ----------------------------------------------------------------------------------------------------------------------
 # 2. close the running app
@@ -179,5 +180,10 @@ if (-not $NoStart) {
   }
 }
 
+$installedExe = Join-Path $installDir "$productName.exe"
 Write-Host ''
-Write-Host 'Done.' -ForegroundColor Green
+if (Test-Path $installedExe) {
+  Write-Host "Done -- version $((Get-Item $installedExe).VersionInfo.FileVersion) is installed." -ForegroundColor Green
+} else {
+  Write-Host 'Done.' -ForegroundColor Green
+}
