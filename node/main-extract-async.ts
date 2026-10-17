@@ -57,8 +57,9 @@ let allFoundFilesMap: Map<number, Map<string, 1>> = new Map();
 // both these numbers     ^^^^^^ match up - they refer to the same `inputSource`
 
 // Folders on a network drive are not watched with `chokidar`: it opens a watch handle for every single file,
-// one blocking network call each -- thousands of files froze the app for minutes. They are re-scanned on a timer instead
-const networkRescanInterval = 10 * 60 * 1000;
+// one blocking network call each -- thousands of files froze the app for minutes. They are re-scanned on a timer instead:
+// a scan of 13,000 files on a NAS took little more than a second, so every two minutes costs next to nothing
+const networkRescanInterval = 2 * 60 * 1000;
 const rescanTimerMap:   Map<number, NodeJS.Timeout> = new Map(); // key is `inputSource`
 const watchRequestMap:  Map<number, number> = new Map();         // latest request to watch each `inputSource`
 const scansInProgress:  Set<number> = new Set();                 // `inputSource` currently scanned by `fdir`
