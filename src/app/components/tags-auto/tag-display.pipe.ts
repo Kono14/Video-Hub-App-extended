@@ -1,7 +1,6 @@
 import type { PipeTransform } from '@angular/core';
 import { Pipe } from '@angular/core';
 
-import { autoFileTagsRegex } from './autotags.service';
 import { ArtistNamesService } from './artist-names.service';
 import { ManualTagsService } from '../tags-manual/manual-tags.service';
 
@@ -46,27 +45,15 @@ export class TagsDisplayPipe implements PipeTransform {
     }
 
     if (autoFileTags) {
-      // the name of a performer as a whole, before its single words
-      this.artistNamesService.namesIn(video.cleanName).forEach((name: string) => {
-        if (!alreadyAdded.has(name)) {
+      // performers and studio only -- not every word of the title, year, resolution and the like
+      this.artistNamesService.tagsFor(video.cleanName).forEach((tag: string) => {
+        if (!alreadyAdded.has(tag)) {
           tags.push({
-            name: name,
+            name: tag,
             colour: Colors.autoFileTags,
             removable: false
           });
-          alreadyAdded.add(name);
-        }
-      });
-
-      const cleanedFileNameAsArray: string[] = video.cleanName.toLowerCase().match(autoFileTagsRegex) || [];
-      cleanedFileNameAsArray.forEach(word => {
-        if (word.length >= 3 && !alreadyAdded.has(word)) { // TODO - fix hardcoding ?
-          tags.push({
-            name: word,
-            colour: Colors.autoFileTags,
-            removable: false
-          });
-          alreadyAdded.add(word);
+          alreadyAdded.add(tag);
         }
       });
     }

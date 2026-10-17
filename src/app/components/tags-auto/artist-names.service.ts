@@ -14,6 +14,12 @@ const neverInName: Set<string> = new Set([
 const neverFirst: Set<string> = new Set(['the', 'a', 'an', 'my', 'your', 'his', 'her', 'our', 'their', 'this', 'that', 'its', 'finally', 'best']);
 const neverLast: Set<string> = new Set(['de', 'del', 'della', 'da', 'di', 'la', 'le', 'van', 'von', 'of', 'in', 'on']);
 
+// What release names put in front of the studio: `www 0xxx ws PixAndVideo 19 06 24 ...`, `( Site com ) ...`
+const releasePrefix: Set<string> = new Set(['www', '0xxx', 'ws', 'com', 'net', 'org']);
+
+// First words of file names that say nothing about the video: `VID-2025-09-14`, `Clips Group 12`
+const neverFallback: Set<string> = new Set(['vid', 'video', 'videos', 'img', 'clip', 'clips', 'full', 'new', 'part']);
+
 /**
  * Whether the words could be the name of a performer
  * @param words -- in lower case
@@ -86,6 +92,84 @@ export function artistNamesIn(cleanName: string, knownNames: Set<string>): strin
 }
 
 /**
+ * The studio of a scene release: the first word before its date (`PixAndVideo 19 06 24 ...`, `ManyVids 2024 ...`),
+ * once the release prefix (`www 0xxx ws`) is left out -- at most two words may stand before the date
+ * @param cleanName
+ * @returns in lower case, or `null`
+ */
+export function studioOf(cleanName: string): string | null {
+  const words: string[] = nameWords(cleanName);
+  let start = 0;
+
+  while (start < words.length && releasePrefix.has(words[start])) {
+    start++;
+  }
+
+  const isDay = (w: string): boolean => /^\d{2}$/.test(w);
+  const isYear = (w: string): boolean => /^(19|20)\d{2}$/.test(w);
+
+  for (let i = start + 1; i <= start + 2 && i < words.length; i++) {
+    const shortDate: boolean = isDay(words[i]) && isDay(words[i + 1] || '') && isDay(words[i + 2] || '');
+    const longDate: boolean = isYear(words[i]) && isDay(words[i + 1] || '') && isDay(words[i + 2] || '');
+    const yearOnly: boolean = isYear(words[i]) && start > 0; // a year alone counts only after a release prefix
+    if (shortDate || longDate || yearOnly) {
+      const studio: string = words[start];
+      return /\p{L}/u.test(studio) && studio.length >= 3 && !neverInName.has(studio) && !neverFallback.has(studio) ? studio : null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * A tag for a video without a recognised performer: what stands before the first ` - ` (a channel, a studio, or a
+ * performer known by one name -- `katerealgirl - ...`), otherwise the first word of the name
+ * @param cleanName
+ * @returns in lower case, or `null`
+ */
+export function fallbackTag(cleanName: string): string | null {
+  // a channel name may end in a few digits (`ladyannabelle666`), a camera's file name may not be a tag (`vid20261010`)
+  const usable = (w: string): boolean => /^\p{L}[\p{L}']*\d{0,4}$/u.test(w) && w.length >= 3
+                                      && !neverInName.has(w) && !neverFirst.has(w) && !neverFallback.has(w);
+
+  const dash: number = cleanName.indexOf(' - ');
+  if (dash > 0) {
+    const before: string[] = nameWords(cleanName.slice(0, dash)).filter((w: string) => !releasePrefix.has(w));
+    if (before.length >= 1 && before.length <= 3 && before.every(usable)) {
+      return before.join(' ');
+    }
+  }
+
+  const first: string = nameWords(cleanName).find((w: string) => !releasePrefix.has(w));
+  return first && usable(first) ? first : null;
+}
+
+/**
+ * The automatic tags of a video: its performers, its studio, and for a video without a recognised performer
+ * the tag of `fallbackTag`. The title, the year, the resolution and the like are left out on purpose:
+ * split into words they gave a video a dozen tags, and the video's details show year and resolution anyway
+ * @param cleanName
+ * @param knownNames -- from `learnArtistNames`
+ */
+export function automaticTags(cleanName: string, knownNames: Set<string>): string[] {
+  const tags: string[] = artistNamesIn(cleanName, knownNames);
+
+  const studio: string | null = studioOf(cleanName);
+  if (studio && !tags.includes(studio)) {
+    tags.push(studio);
+  }
+
+  if (!tags.some((tag: string) => tag !== studio)) {
+    const fallback: string | null = fallbackTag(cleanName);
+    if (fallback && !tags.includes(fallback)) {
+      tags.push(fallback);
+    }
+  }
+
+  return tags;
+}
+
+/**
  * Every name found at the usual places in the file names of a hub
  * @param cleanNames
  */
@@ -98,8 +182,7 @@ export function learnArtistNames(cleanNames: string[]): Set<string> {
 }
 
 /**
- * The names of performers that the file names of the open hub have -- for the automatic tags,
- * which otherwise only have the single words of a name
+ * The automatic tags of the videos of the open hub: names of performers (learnt from all file names) and studios
  */
 @Injectable({
   providedIn: 'root'
@@ -124,5 +207,13 @@ export class ArtistNamesService {
    */
   namesIn(cleanName: string): string[] {
     return artistNamesIn(cleanName, this.knownNames);
+  }
+
+  /**
+   * The automatic tags of a video -- see `automaticTags`
+   * @param cleanName
+   */
+  tagsFor(cleanName: string): string[] {
+    return automaticTags(cleanName, this.knownNames);
   }
 }
