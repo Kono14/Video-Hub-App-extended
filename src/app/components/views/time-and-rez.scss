@@ -220,3 +220,40 @@
 .folder-tab-larger .folder-tab-name {
   font-size: 16px;
 }
+
+// The tags of a video, top left on its picture, in the style of the name and meta at the bottom; a click on one searches
+// every folder for it. At most two rows, the icons top right stay free
+.tag-overlay {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 2px;
+  left: 2px;
+  line-height: 15px;
+  max-height: 34px;
+  overflow: hidden;
+  position: absolute;
+  right: 28px;
+  top: 2px;
+  z-index: 3;
+}
+
+.tag-overlay-larger {
+  font-size: 14px;
+  line-height: 19px;
+  max-height: 42px;
+}
+
+.tag-overlay-item {
+  background: #000000aa; // alpha
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  padding: 0 4px;
+  white-space: nowrap;
+
+  &:hover {
+    background: #000000ee; // alpha
+    text-decoration: underline;
+  }
+}

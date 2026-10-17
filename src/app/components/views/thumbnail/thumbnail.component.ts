@@ -31,6 +31,7 @@ export class ThumbnailComponent implements OnInit, OnDestroy {
   readonly videoClick = output<VideoClickEmit>();
 
   readonly heartPressed = output<void>();
+  readonly tagClicked = output<string>();
 
   @Input() video: ImageElement;
 
@@ -47,6 +48,9 @@ export class ThumbnailComponent implements OnInit, OnDestroy {
   readonly returnToFirstScreenshot = input<boolean>();
   readonly showFavorites = input<boolean>();
   readonly showMeta = input<boolean>();
+  readonly showAutoFileTags = input<boolean>();
+  readonly showAutoFolderTags = input<boolean>();
+  readonly showManualTags = input<boolean>();
   readonly thumbAutoAdvance = input<boolean>();
 
   containerWidth = 100; // arbitrary rather than undefined
@@ -133,6 +137,16 @@ export class ThumbnailComponent implements OnInit, OnDestroy {
     leftClick.stopPropagation()
 
     this.sheetClick.emit();
+  }
+
+  /**
+   * A tag on the video was clicked -- not the video
+   * @param mouseClick
+   * @param tag
+   */
+  clickTag(mouseClick: MouseEvent, tag: string): void {
+    mouseClick.stopPropagation();
+    this.tagClicked.emit(tag);
   }
 
   toggleHeart(leftClick: PointerEvent): void {

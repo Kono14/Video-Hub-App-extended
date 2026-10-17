@@ -915,6 +915,7 @@
                 | countPipe
 
                 | folderViewPipe : (settingsButtons['showFolders'].toggled)
+                                   && magicSearchString === ''
                                    && (   appState.currentView === 'showThumbnails'
                                        || appState.currentView === 'showFilmstrip'
                                        || appState.currentView === 'showFiles'
@@ -964,6 +965,10 @@
           [largerFont]="settingsButtons['fontSizeLarger'].toggled"
           [returnToFirstScreenshot]="settingsButtons['returnToFirstScreenshot'].toggled"
           [showMeta]="settingsButtons['showMoreInfo'].toggled"
+          [showAutoFileTags]="settingsButtons['autoFileTags'].toggled"
+          [showAutoFolderTags]="settingsButtons['autoFolderTags'].toggled"
+          [showManualTags]="settingsButtons['manualTags'].toggled"
+          (tagClicked)="searchEverywhere($event)"
           [thumbAutoAdvance]="settingsButtons['thumbAutoAdvance'].toggled"
 
           style="display: inline-block"
@@ -1004,6 +1009,10 @@
           [hoverScrub]="settingsButtons['hoverScrub'].toggled"
           [largerFont]="settingsButtons['fontSizeLarger'].toggled"
           [showMeta]="settingsButtons['showMoreInfo'].toggled"
+          [showAutoFileTags]="settingsButtons['autoFileTags'].toggled"
+          [showAutoFolderTags]="settingsButtons['autoFolderTags'].toggled"
+          [showManualTags]="settingsButtons['manualTags'].toggled"
+          (tagClicked)="searchEverywhere($event)"
 
           style="display: block"
           [ngStyle]="{

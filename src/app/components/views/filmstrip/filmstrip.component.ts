@@ -32,6 +32,7 @@ export class FilmstripComponent implements OnInit {
 
   readonly videoClick = output<VideoClickEmit>();
   readonly rightClick = output<RightClickEmit>();
+  readonly tagClicked = output<string>();
 
   readonly video = input<ImageElement>();
 
@@ -44,6 +45,9 @@ export class FilmstripComponent implements OnInit {
   readonly imgHeight = input<number>();
   readonly largerFont = input<boolean>();
   readonly showMeta = input<boolean>();
+  readonly showAutoFileTags = input<boolean>();
+  readonly showAutoFolderTags = input<boolean>();
+  readonly showManualTags = input<boolean>();
   readonly showFavorites = input<boolean>();
 
   // a folder carries some of its videos: one screenshot of each is shown, as wide as the picture in it
@@ -119,6 +123,16 @@ export class FilmstripComponent implements OnInit {
       this.indexToShow = Math.floor(cursorX * (this.video().screens / containerWidth));
       this.filmXoffset = imgWidth * Math.floor(cursorX / (containerWidth / howManyScreensOutsideCutoff));
     }
+  }
+
+  /**
+   * A tag on the video was clicked -- not the video
+   * @param mouseClick
+   * @param tag
+   */
+  clickTag(mouseClick: MouseEvent, tag: string): void {
+    mouseClick.stopPropagation();
+    this.tagClicked.emit(tag);
   }
 
   toggleHeart(mouseClick: PointerEvent): void {

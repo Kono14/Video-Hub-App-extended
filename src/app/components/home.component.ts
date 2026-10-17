@@ -1524,6 +1524,18 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * A tag on a video in the gallery was clicked: search every folder for it -- back to the top folder,
+   * the tag in "folder or video name". While that search is on, the gallery lists the videos without folders
+   * @param tag
+   */
+  searchEverywhere(tag: string): void {
+    this.folderViewNavigationPath = '';
+    this.magicSearchString = tag;
+    this.showSidebar();
+    this.scrollToTop();
+  }
+
+  /**
    * Add filter to FILE search when word in file is clicked
    * @param filter
    */

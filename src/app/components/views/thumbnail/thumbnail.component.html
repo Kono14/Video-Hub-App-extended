@@ -189,6 +189,15 @@
     </div>
 
   @if (showMeta()) {
+    <!-- the tags of the video, as in the details view: a click searches every folder for the tag -->
+    <div class="tag-overlay" [ngClass]="{ 'tag-overlay-larger': largerFont() }">
+      @for (tag of (video | tagDisplayPipe : showManualTags() : showAutoFileTags() : showAutoFolderTags() : (video.tags?.length || 0)); track tag.name) {
+        <span class="tag-overlay-item" (click)="clickTag($event, tag.name)" (dblclick)="$event.stopPropagation()">{{ tag.name }}</span>
+      }
+    </div>
+  }
+
+  @if (showMeta()) {
     @if (compactView()) {
       <div class="compact-meta" [ngClass]="{ 'compact-meta-larger': largerFont() }">
         <div class="compact-meta-row">
