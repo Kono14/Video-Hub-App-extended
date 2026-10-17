@@ -11,6 +11,9 @@ export class SourceFolderService {
 
   sourceFolderConnected: InputSourceConnected = {};
 
+  // watched folders on a network drive: they are scanned every few minutes, not watched file by file
+  watchedByRescanning: Record<number, boolean> = {};
+
   currentlyScanning: Map<number, boolean> = new Map();
 
   /**

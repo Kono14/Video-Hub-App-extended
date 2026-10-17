@@ -662,6 +662,11 @@ export class HomeComponent implements OnInit, AfterViewInit {
       this.sourceFolderService.sourceFolderConnected[sourceIndex] = true;
     });
 
+    // a watched folder on a network drive -- the window offers to scan it right away
+    (window as any).myElectron.receiveFromMain('watched-by-rescanning', (sourceIndex: number) => {
+      this.sourceFolderService.watchedByRescanning[sourceIndex] = true;
+    });
+
     (window as any).myElectron.receiveFromMain('started-watching-this-dir', (sourceIndex: number) => {
       this.allFinishedScanning.set(false);
       this.sourceFolderService.addCurrentScanning(sourceIndex);
@@ -771,6 +776,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
       this.stopServer();
 
       this.artistNamesService.learn(finalObject.images); // before the videos are shown with their tags
+      this.sourceFolderService.watchedByRescanning = {}; // node tells again for the folders of this hub
 
       // console.log('input dirs', finalObject.inputDirs);
       // reset to initial

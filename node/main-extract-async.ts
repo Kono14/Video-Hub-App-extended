@@ -503,6 +503,8 @@ function isNetworkFolder(inputDir: string): Promise<boolean> {
  */
 function watchByRescanning(inputDir: string, inputSource: number): void {
 
+  GLOBALS.angularApp.sender.send('watched-by-rescanning', inputSource); // so the window offers to scan it right away
+
   superFastSystemScan(inputDir, inputSource);
 
   rescanTimerMap.set(inputSource, setInterval(() => {
@@ -512,6 +514,19 @@ function watchByRescanning(inputDir: string, inputSource: number): void {
       }
     });
   }, networkRescanInterval));
+}
+
+/**
+ * Scan a source folder for new and deleted videos now, without changing how it is watched --
+ * for a folder on a network drive, which otherwise is only scanned every `networkRescanInterval`
+ * @param inputSource
+ */
+export function rescanNow(inputSource: number): void {
+  const folder = GLOBALS.selectedSourceFolders[inputSource];
+
+  if (folder) {
+    superFastSystemScan(folder.path, inputSource); // does nothing while a scan of this folder is still running
+  }
 }
 
 /**

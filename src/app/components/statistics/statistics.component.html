@@ -28,7 +28,11 @@
       </span>
     }
 
-    @if (!removeFoldersMode && !item.value.watch && sourceFolderService.sourceFolderConnected[item.key]) {
+    @if (
+         !removeFoldersMode
+      && (!item.value.watch || sourceFolderService.watchedByRescanning[item.key])
+      && sourceFolderService.sourceFolderConnected[item.key]
+    ) {
       <span
         class="rescan-input-folder"
         (click)="($event.button === 0) && rescanFolder(item.key)"

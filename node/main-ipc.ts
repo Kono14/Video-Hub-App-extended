@@ -11,7 +11,7 @@ import { ImageElement, FinalObject, InputSources } from '../interfaces/final-obj
 import { SettingsObject } from '../interfaces/settings-object.interface';
 import { createDotPlsFile, writeVhaFileToDisk } from './main-support';
 import { replaceThumbnailWithNewImage } from './main-extract';
-import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNotInHub } from './main-extract-async';
+import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNotInHub, rescanNow } from './main-extract-async';
 
 /**
  * Set up the listeners
@@ -296,6 +296,13 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
   /**
    * Stop watching a particular folder
    */
+  /**
+   * Scan a watched folder on a network drive now, instead of waiting for its next scan
+   */
+  ipc.on('rescan-folder-now', (event, watchedFolderIndex: string) => {
+    rescanNow(parseInt(watchedFolderIndex, 10));
+  });
+
   ipc.on('start-watching-folder', (event, watchedFolderIndex: string, path2: string, persistent: boolean) => {
     // annoyingly it's not a number :     ^^^^^^^^^^^^^^^^^^ -- because object keys are strings :(
     console.log('start watching:', watchedFolderIndex, path2, persistent);

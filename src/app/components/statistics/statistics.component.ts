@@ -245,10 +245,14 @@ export class StatisticsComponent implements OnInit, OnDestroy {
    * @param index
    */
   rescanFolder(index: number) {
-    console.log(index);
-    console.log(typeof(index));
     const inputFolders = this.inputFolders();
-    console.log(inputFolders[index].path);
+
+    if (inputFolders[index].watch) {
+      // a watched folder on a network drive: scan it now, and keep it watched
+      (window as any).myElectron.sendToMain('rescan-folder-now', index);
+      return;
+    }
+
     this.tellNodeStartWatching(index, inputFolders[index].path, false);
     setTimeout(() => {
       this.cd.detectChanges(); // to update template whether to show "Rescan" or not
