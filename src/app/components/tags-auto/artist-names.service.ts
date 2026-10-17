@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 
 import type { ImageElement } from '../../../../interfaces/final-object.interface';
 
+import { givenNames } from './given-names';
+
 // Every word of a name, in lower case: letters (of any language) and apostrophes
 const nameWordRegex = /[\p{L}\d']+/gu;
 const isNameWord = (word: string): boolean => /^\p{L}[\p{L}']+$/u.test(word);
@@ -16,6 +18,9 @@ const neverLast: Set<string> = new Set(['de', 'del', 'della', 'da', 'di', 'la', 
 
 // What release names put in front of the studio: `www 0xxx ws PixAndVideo 19 06 24 ...`, `( Site com ) ...`
 const releasePrefix: Set<string> = new Set(['www', '0xxx', 'ws', 'com', 'net', 'org']);
+
+// Where the title of a scene release ends: `... Behind Closed Doors XXX 2160p MP4-KTR`
+const endOfTitle: Set<string> = new Set(['xxx', 'mp4', 'hevc', 'x264', 'x265', '4k', '480p', '540p', '720p', '1080p', '1440p', '2160p', '2880p']);
 
 // First words of file names that say nothing about the video: `VID-2025-09-14`, `Clips Group 12`
 const neverFallback: Set<string> = new Set(['vid', 'video', 'videos', 'img', 'clip', 'clips', 'full', 'new', 'part']);
@@ -98,6 +103,23 @@ export function artistNamesIn(cleanName: string, knownNames: Set<string>): strin
  * @returns in lower case, or `null`
  */
 export function studioOf(cleanName: string): string | null {
+  const release: SceneRelease | null = sceneRelease(cleanName);
+  const studio: string = release ? release.studio : '';
+
+  return /\p{L}/u.test(studio) && studio.length >= 3 && !neverInName.has(studio) && !neverFallback.has(studio) ? studio : null;
+}
+
+interface SceneRelease {
+  studio: string;  // the first word before the date
+  title: string[]; // the words between the date and `XXX`, the resolution or the like
+}
+
+/**
+ * Split a scene release (`www 0xxx ws Studio 19 06 24 Title Words XXX 1080p MP4-KTR`) into studio and title
+ * @param cleanName
+ * @returns `null` if the name has no date close to its start
+ */
+function sceneRelease(cleanName: string): SceneRelease | null {
   const words: string[] = nameWords(cleanName);
   let start = 0;
 
@@ -113,12 +135,41 @@ export function studioOf(cleanName: string): string | null {
     const longDate: boolean = isYear(words[i]) && isDay(words[i + 1] || '') && isDay(words[i + 2] || '');
     const yearOnly: boolean = isYear(words[i]) && start > 0; // a year alone counts only after a release prefix
     if (shortDate || longDate || yearOnly) {
-      const studio: string = words[start];
-      return /\p{L}/u.test(studio) && studio.length >= 3 && !neverInName.has(studio) && !neverFallback.has(studio) ? studio : null;
+      const titleStart: number = i + (yearOnly && !longDate ? 1 : 3);
+      let titleEnd: number = titleStart;
+      while (titleEnd < words.length && !endOfTitle.has(words[titleEnd])) {
+        titleEnd++;
+      }
+      return { studio: words[start], title: words.slice(titleStart, titleEnd) };
     }
   }
 
   return null;
+}
+
+/**
+ * Performers known by a first name only, in the title of a scene release: `YouthLust 2023 Selena Porn Audition`,
+ * `18Lust 24 11 27 Finally Got To Fuck Kiara`, `18Lust 23 01 05 Annika And Scarlett Threesome`. Every given name in
+ * the title counts; without one, the first word of the title does, as many studios start the title with the name
+ * @param cleanName
+ * @returns in lower case
+ */
+export function firstNamesInRelease(cleanName: string): string[] {
+  const release: SceneRelease | null = sceneRelease(cleanName);
+  if (!release) {
+    return [];
+  }
+
+  const title: string[] = release.title.map((w: string) => w.replace(/'s$/, ''));
+  const found: string[] = title.filter((w: string) => givenNames.has(w));
+  if (found.length) {
+    return Array.from(new Set(found));
+  }
+
+  const first: string = title[0];
+  const usable: boolean = !!first && isNameWord(first) && first.length >= 3
+                       && !neverInName.has(first) && !neverFirst.has(first) && !neverFallback.has(first);
+  return usable ? [first] : [];
 }
 
 /**
@@ -140,7 +191,7 @@ export function fallbackTag(cleanName: string): string | null {
     }
   }
 
-  const first: string = nameWords(cleanName).find((w: string) => !releasePrefix.has(w));
+  const first: string = (nameWords(cleanName).find((w: string) => !releasePrefix.has(w)) || '').replace(/'s$/, '');
   return first && usable(first) ? first : null;
 }
 
@@ -153,6 +204,10 @@ export function fallbackTag(cleanName: string): string | null {
  */
 export function automaticTags(cleanName: string, knownNames: Set<string>): string[] {
   const tags: string[] = artistNamesIn(cleanName, knownNames);
+
+  if (!tags.length) {
+    tags.push(...firstNamesInRelease(cleanName));
+  }
 
   const studio: string | null = studioOf(cleanName);
   if (studio && !tags.includes(studio)) {
