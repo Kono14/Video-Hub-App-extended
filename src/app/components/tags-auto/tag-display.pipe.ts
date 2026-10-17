@@ -39,14 +39,14 @@ export class TagsDisplayPipe implements PipeTransform {
             colour: this.manualTagsService.getTagColor(tag) || Colors.manualTags,
             removable: true
           });
-          alreadyAdded.add(tag);
+          alreadyAdded.add(tag.toLowerCase()); // automatic tags are in lower case -- `Selena` and `selena` are one
         });
       }
     }
 
     if (autoFileTags) {
       // performers and studio only -- not every word of the title, year, resolution and the like
-      this.artistNamesService.tagsFor(video.cleanName).forEach((tag: string) => {
+      this.artistNamesService.tagsFor(video.cleanName, !!(video.tags && video.tags.length)).forEach((tag: string) => {
         if (!alreadyAdded.has(tag)) {
           tags.push({
             name: tag,

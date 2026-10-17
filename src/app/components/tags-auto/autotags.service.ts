@@ -79,7 +79,7 @@ export class AutoTagsService {
 
       this.onlyFileNames.push((element.cleanName.toLowerCase().match(autoFileTagsRegex) || []).join(' '));
 
-      this.artistNamesService.tagsFor(element.cleanName).forEach((tag: string) => {
+      this.artistNamesService.tagsFor(element.cleanName, !!(element.tags && element.tags.length)).forEach((tag: string) => {
         const map: Map<string, number> = tag.includes(' ') ? this.twoWordFreqMap : this.oneWordFreqMap;
         map.set(tag, (map.get(tag) || 0) + 1);
       });

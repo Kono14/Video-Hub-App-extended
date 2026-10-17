@@ -266,9 +266,16 @@ export class ArtistNamesService {
 
   /**
    * The automatic tags of a video -- see `automaticTags`
+   * A video with tags of its own (its performers, set by hand or by the AI run) gets only its studio:
+   * names guessed from rules would sit next to the right ones (`half` from `Half Sisters`)
    * @param cleanName
+   * @param hasOwnTags
    */
-  tagsFor(cleanName: string): string[] {
+  tagsFor(cleanName: string, hasOwnTags: boolean = false): string[] {
+    if (hasOwnTags) {
+      const studio: string | null = studioOf(cleanName);
+      return studio ? [studio] : [];
+    }
     return automaticTags(cleanName, this.knownNames);
   }
 }
