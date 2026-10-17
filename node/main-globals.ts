@@ -12,7 +12,7 @@ export const GLOBALS: VhaGlobals = {
   currentlyOpenVhaFile: '',    // OFFICAL DECREE IN NODE WHICH FILE IS CURRENTLY OPEN !!!
   debug: false,
   demo: false,                 // change to `true` during release                                         <---- !!! RELEASE !!!
-  forkBuild: 7,                // builds of this fork on top of `version` (3.3.0.1, 3.3.0.2, ...) -- one more for every
+  forkBuild: 8,                // builds of this fork on top of `version` (3.3.0.1, 3.3.0.2, ...) -- one more for every
                                // installer handed over; back to 1 when `version` changes. `bin/build-installer.js` reads it
   hubName: 'untitled',         // in case user doesn't name their hub any name
   macVersion: false,           // auto updated by `main.ts`
