@@ -261,6 +261,7 @@
     "errorMustBeDifferent": "new file name must be different",
     "errorMustNotBeEmpty": "new file name may not be empty",
     "errorSomeError": "Some error occurred",
+    "errorViewerInstance": "This window only views the hub. Rename the file in the first window of the app.",
     "openFolder": "Open folder",
     "renameButton": "RENAME",
     "renameFile": "Rename file",
@@ -274,6 +275,10 @@
   },
   "SETTINGS": {
     "autosaveFailed": "Could not save the library automatically ({{error}}). Changes are kept and saved again later.",
+    "viewerChangesLost": "This window only views the hub, so changes made here are not saved. Make them in the first window of the app.",
+    "viewerRefused": "This window only views the hub. Do this in the first window of the app.",
+    "viewerStarted": "The app is already open, so this window only views hubs. It saves nothing and updates when the first window saves the hub.",
+    "viewerTitle": "view only",
     "FAQ": "Click here for help, documentation, FAQ, or to report a bug",
     "additionalExtensions": "Support additional extensions",
     "applyAdditionalExtensions": "apply",

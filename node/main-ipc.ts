@@ -23,6 +23,16 @@ import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNo
 export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
 
   /**
+   * In the viewer instance, refuse what would change the hub, the videos or their previews -- and say why
+   */
+  function refusedInViewer(event): boolean {
+    if (GLOBALS.viewerInstance) {
+      event.sender.send('viewer-refused');
+    }
+    return GLOBALS.viewerInstance;
+  }
+
+  /**
    * Un-Maximize the window
    */
   ipc.on('un-maximize-window', (event) => {
@@ -195,6 +205,9 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Delete file from computer (send to recycling bin / trash) or dangerously delete (bypass trash)
    */
   ipc.on('delete-video-file', (event, basePath: string, item: ImageElement, dangerousDelete: boolean): void => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     const fileToDelete = path.join(basePath, item.partialPath, item.fileName);
 
     if (dangerousDelete) {
@@ -236,6 +249,9 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Method to replace thumbnail of a particular item
    */
   ipc.on('replace-thumbnail', (event, pathToIncomingJpg: string, item: ImageElement) => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     const fileToReplace: string = path.join(
         GLOBALS.selectedOutputFolder,
         'vha-' + GLOBALS.hubName,
@@ -300,10 +316,16 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Scan a watched folder on a network drive now, instead of waiting for its next scan
    */
   ipc.on('rescan-folder-now', (event, watchedFolderIndex: string) => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     rescanNow(parseInt(watchedFolderIndex, 10));
   });
 
   ipc.on('start-watching-folder', (event, watchedFolderIndex: string, path2: string, persistent: boolean) => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     // annoyingly it's not a number :     ^^^^^^^^^^^^^^^^^^ -- because object keys are strings :(
     console.log('start watching:', watchedFolderIndex, path2, persistent);
     startWatcher(parseInt(watchedFolderIndex, 10), path2, persistent);
@@ -313,6 +335,9 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * extract any missing thumbnails
    */
   ipc.on('add-missing-thumbnails', (event, finalArray: ImageElement[], extractClips: boolean) => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     extractAnyMissingThumbs(finalArray);
   });
 
@@ -320,6 +345,9 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Remove any thumbnails for files no longer present in the hub
    */
   ipc.on('clean-old-thumbnails', (event, finalArray: ImageElement[]) => {
+    if (refusedInViewer(event)) {
+      return;
+    }
     // !!! WARNING
     const screenshotOutputFolder: string = path.join(GLOBALS.selectedOutputFolder, 'vha-' + GLOBALS.hubName);
     // !! ^^^^^^^^^^^^^^^^^^^^^^ - make sure this points to the folder with screenshots only!
@@ -353,6 +381,11 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Try to rename the particular file
    */
   ipc.on('try-to-rename-this-file', (event, sourceFolder: string, relPath: string, file: string, renameTo: string, index: number): void => {
+    if (refusedInViewer(event)) {
+      event.sender.send('rename-file-response', index, false, renameTo, file, 'RIGHTCLICK.errorViewerInstance');
+      return;
+    }
+
     console.log('renaming file:');
 
     const original: string = path.join(sourceFolder, relPath, file);
@@ -408,6 +441,9 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
    * Autosave app settings (buttons, player, recent hubs) -- same file as on close
    */
   ipc.on('autosave-settings', (event, settingsToSave: SettingsObject) => {
+    if (GLOBALS.viewerInstance) {
+      return; // the settings are the main instance's
+    }
     try {
       settingsToSave.shortcuts = <any>Object.fromEntries(settingsToSave.shortcuts);
       const settingsPath: string = path.join(GLOBALS.settingsPath, 'settings.json');
@@ -427,6 +463,12 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
     settingsToSave.shortcuts = <any>Object.fromEntries(settingsToSave.shortcuts);
 
     const json = JSON.stringify(settingsToSave);
+
+    if (GLOBALS.viewerInstance) { // writes neither the settings nor the hub
+      GLOBALS.readyToQuit = true;
+      GLOBALS.winRef.close();
+      return;
+    }
 
     try {
       fs.statSync(path.join(pathToAppData, 'video-hub-app-2'));

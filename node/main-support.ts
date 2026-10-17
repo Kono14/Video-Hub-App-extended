@@ -229,6 +229,11 @@ const vhaBackedUp: Set<string> = new Set();
  */
 export function writeVhaFileToDisk(finalObject: FinalObject, pathToTheFile: string, done: (err?: any) => void): void {
 
+  if (GLOBALS.viewerInstance) {
+    done(); // only the main instance writes the hub -- this one would overwrite its changes
+    return;
+  }
+
   const finish = (err?: any): void => {
     try {
       done(err);
@@ -627,7 +632,7 @@ export function parseAdditionalExtensions(additionalExtension: string): string[]
  * @param finalObject
  * @param globals
  */
-export function sendFinalObjectToAngular(finalObject: FinalObject, globals: VhaGlobals): void {
+export function sendFinalObjectToAngular(finalObject: FinalObject, globals: VhaGlobals, keepView = false): void {
 
   // finalObject.images = alphabetizeFinalArray(finalObject.images); // TODO -- check -- unsure if needed
 
@@ -637,7 +642,8 @@ export function sendFinalObjectToAngular(finalObject: FinalObject, globals: VhaG
     'final-object-returning',
     finalObject,
     globals.currentlyOpenVhaFile,
-    getHtmlPath(globals.selectedOutputFolder)
+    getHtmlPath(globals.selectedOutputFolder),
+    keepView // the same hub again, as saved by the main instance -- stay in the folder that is open
   );
 }
 

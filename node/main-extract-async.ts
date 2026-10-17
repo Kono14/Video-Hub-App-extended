@@ -522,6 +522,9 @@ function watchByRescanning(inputDir: string, inputSource: number): void {
  * @param inputSource
  */
 export function rescanNow(inputSource: number): void {
+  if (GLOBALS.viewerInstance) {
+    return; // the main instance scans
+  }
   const folder = GLOBALS.selectedSourceFolders[inputSource];
 
   if (folder) {
@@ -536,6 +539,9 @@ export function rescanNow(inputSource: number): void {
  * @param persistent  -- whether to continue watching after the initial scan
  */
 export function startFileSystemWatching(inputDir: string, inputSource: number, persistent: boolean): void {
+  if (GLOBALS.viewerInstance) {
+    return; // the main instance scans and watches
+  }
 
   // only run `chokidar` if `persistent`
   if (!persistent) {
@@ -765,6 +771,9 @@ export function closeWatcher(inputSource: number): void {
  */
 export function startWatcher(inputSource: number, folderPath: string, persistent: boolean): void {
   console.log('start watching !!!!', inputSource, typeof(inputSource), folderPath, persistent);
+  if (GLOBALS.viewerInstance) {
+    return; // the main instance scans and watches
+  }
 
   GLOBALS.selectedSourceFolders[inputSource] = {
     path: folderPath,
@@ -853,6 +862,9 @@ function elementsWithoutThumbs(fullArray: ImageElement[]): Promise<ImageElement[
  * @param fullArray          - ImageElement array
  */
 export function extractAnyMissingThumbs(fullArray: ImageElement[]): void {
+  if (GLOBALS.viewerInstance) {
+    return; // the main instance extracts the previews
+  }
   const queue = thumbQueue;
 
   elementsWithoutThumbs(fullArray).then((missing: ImageElement[]) => {
@@ -875,6 +887,9 @@ export function extractAnyMissingThumbs(fullArray: ImageElement[]): void {
  * @param directory
  */
 export function removeThumbnailsNotInHub(hashesPresent: Map<string, 1>, directory: string): void {
+  if (GLOBALS.viewerInstance) {
+    return; // previews belong to the main instance
+  }
 
   deleteThumbQueue.pause();
   numberOfThumbsDeleted = 0;

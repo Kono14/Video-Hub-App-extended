@@ -22,6 +22,7 @@ export const GLOBALS: VhaGlobals = {
   settingsPath: '',            // to differentiate between standard & Windows Portable settings location
   version: '3.3.0',            // see instructions above to update `package.json` in tandem               <---- !!! RELEASE !!!!
   vhaFileVersion: 3,
+  viewerInstance: false,       // started while another instance runs: shows hubs, never writes, scans or extracts
   winRef: null,
   screenshotSettings: {
     clipHeight: 144,           // default clip height
@@ -50,5 +51,6 @@ export interface VhaGlobals {
   settingsPath: string;
   version: string;
   vhaFileVersion: number;
+  viewerInstance: boolean;
   winRef: any;
 }

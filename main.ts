@@ -73,16 +73,28 @@ if (GLOBALS.debug) {
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
 
 // For windows -- when loading the app the first time
-if (args[0]) {
+if (hubFileIn(args)) { // only a hub -- not a switch such as `--user-data-dir` handed to a test instance
   if (!serve) {
-    userWantedToOpen = args[0]; // TODO -- clean up file-opening code to not use variable
+    userWantedToOpen = hubFileIn(args); // TODO -- clean up file-opening code to not use variable
   }
+}
+
+/**
+ * The `.vha2` file among the arguments -- a hub double-clicked in the file explorer
+ */
+function hubFileIn(argv: string[]): string {
+  return argv.find((arg: string) => arg.toLowerCase().endsWith('.vha2'));
 }
 
 const gotTheLock = app.requestSingleInstanceLock(); // Open file on windows from file double click
 
-if (!gotTheLock) {
-  app.quit();
+if (!gotTheLock && hubFileIn(args)) {
+  app.quit(); // the running instance opens the double-clicked hub
+} else if (!gotTheLock) {
+  // Started again while the app runs: a second window that only shows hubs. Two windows saving the same hub
+  // would each overwrite the other's changes, and both would scan the same folders and extract the same previews
+  GLOBALS.viewerInstance = true;
+  app.setPath('sessionData', path.join(app.getPath('userData'), 'viewer-session')); // cache of its own
 } else {
 
   app.on('second-instance', (event, argv: string[], workingDirectory: string) => {
@@ -92,9 +104,12 @@ if (!gotTheLock) {
     //   buttons: ['OK']
     // });
 
-    if (argv.length > 1) {
-      openThisDamnFile(argv[argv.length - 1]);
+    const hubFile: string = hubFileIn(argv.slice(1));
+    if (!hubFile) {
+      return; // no hub double-clicked: the new instance stays open to view hubs
     }
+
+    openThisDamnFile(hubFile);
 
     // Someone tried to run a second instance, we should focus our window.
     if (myWindow) {
@@ -113,7 +128,8 @@ function createWindow() {
   screenHeight = desktopSize.height;
   const mainWindowState = windowStateKeeper({
     defaultWidth: 850,
-    defaultHeight: 850
+    defaultHeight: 850,
+    file: GLOBALS.viewerInstance ? 'window-state-viewer.json' : 'window-state.json', // a place of its own
   });
 
   if (GLOBALS.macVersion) {
@@ -327,8 +343,63 @@ function openThisDamnFile(pathToVhaFile: string): void {
 
       sendFinalObjectToAngular(finalObject, GLOBALS);
 
-      setUpDirectoryWatchers(finalObject.inputDirs, finalObject.images);
+      setUpDirectoryWatchers(finalObject.inputDirs, finalObject.images); // only tells which folders are there in the viewer
+
+      if (GLOBALS.viewerInstance) {
+        followHubOnDisk(pathToVhaFile);
+      }
     }
+  });
+}
+
+let followedHub: string = null;
+let followedHubTimer: any = null;
+
+/**
+ * Viewer instance: load the hub again whenever the main instance has saved it
+ * Polls the time it was changed -- the main instance writes a new file and renames it over the hub
+ * @param pathToVhaFile full path to the .vha2 file
+ */
+function followHubOnDisk(pathToVhaFile: string): void {
+  if (followedHub) {
+    fs.unwatchFile(followedHub);
+  }
+  followedHub = pathToVhaFile;
+
+  fs.watchFile(pathToVhaFile, { interval: 2000 }, (current, previous) => {
+    if (!current.mtimeMs || current.mtimeMs === previous.mtimeMs) {
+      return; // gone for a moment, or nothing changed
+    }
+    clearTimeout(followedHubTimer);
+    followedHubTimer = setTimeout(() => reloadHubFromDisk(pathToVhaFile), 1000);
+  });
+}
+
+/**
+ * Viewer instance: send the hub as saved by the main instance, staying in the folder that is open
+ * @param pathToVhaFile full path to the .vha2 file
+ */
+function reloadHubFromDisk(pathToVhaFile: string): void {
+  fs.readFile(pathToVhaFile, (err, data) => {
+    if (err || pathToVhaFile !== GLOBALS.currentlyOpenVhaFile) {
+      return;
+    }
+
+    let finalObject: FinalObject;
+    try {
+      finalObject = JSON.parse(data);
+    } catch {
+      return; // read while being written -- the end of that write loads it again
+    }
+
+    GLOBALS.hubName = finalObject.hubName;
+    GLOBALS.screenshotSettings = finalObject.screenshotSettings;
+    upgradeToVersion3(finalObject);
+    GLOBALS.selectedSourceFolders = finalObject.inputDirs;
+
+    sendFinalObjectToAngular(finalObject, GLOBALS, true);
+
+    setUpDirectoryWatchers(finalObject.inputDirs, finalObject.images); // Angular marks the folders as there again
   });
 }
 
@@ -347,6 +418,10 @@ setUpIpcForServer(ipcMain);
 ipcMain.on('just-started', (event) => {
   GLOBALS.angularApp = event;
   GLOBALS.winRef = win;
+
+  if (GLOBALS.viewerInstance) {
+    event.sender.send('viewer-instance'); // before the settings -- they open the last hub
+  }
 
   if (GLOBALS.macVersion) {
     tellElectronDarkModeChange(systemPreferences.getEffectiveAppearance());
@@ -382,6 +457,12 @@ ipcMain.on('just-started', (event) => {
 ipcMain.on('start-the-import', (event, wizard: WizardOptions) => {
 
   preventSleep();
+
+  if (GLOBALS.viewerInstance) {
+    event.sender.send('viewer-refused');
+    event.sender.send('please-fix-hub-name'); // ends the import stage of the wizard
+    return;
+  }
 
   const hubName = wizard.futureHubName;
   const outDir: string = wizard.selectedOutputFolder;

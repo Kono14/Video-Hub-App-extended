@@ -138,6 +138,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
   macVersion = GLOBALS.macVersion;
   versionNumber = GLOBALS.version; // the version of the app this fork is built on -- compared with the newest release
   displayVersion = GLOBALS.version + '.' + GLOBALS.forkBuild; // the build that runs, e.g. 3.3.0.1
+  viewerInstance = false; // started while another instance runs: shows the hub, node writes nothing
+  private viewerChangesWarned = false;
 
   vhaFileHistory: HistoryItem[] = [];
 
@@ -527,6 +529,22 @@ export class HomeComponent implements OnInit, AfterViewInit {
       this.cd.detectChanges();
     });
 
+    // Started while another instance of the app runs -- this one only shows hubs
+    (window as any).myElectron.receiveFromMain('viewer-instance', () => {
+      this.zone.run(() => {
+        this.viewerInstance = true;
+        this.displayVersion += ' - ' + this.translate.instant('SETTINGS.viewerTitle');
+        this.modalService.openSnackbar(this.translate.instant('SETTINGS.viewerStarted'), 6000);
+      });
+    });
+
+    // Node refused to change the hub, a video or its previews in the viewer instance
+    (window as any).myElectron.receiveFromMain('viewer-refused', () => {
+      this.zone.run(() => {
+        this.modalService.openSnackbar(this.translate.instant('SETTINGS.viewerRefused'), 5000);
+      });
+    });
+
     // Generic messaging from Node
     (window as any).myElectron.receiveFromMain('show-msg-dialog', (title: string, content: string, details: string ) => {
       this.zone.run(() => {
@@ -771,9 +789,12 @@ export class HomeComponent implements OnInit, AfterViewInit {
       finalObject: FinalObject,
       pathToFile: string,
       outputFolderPath: string,
+      keepView: boolean, // the viewer instance reloads the hub the main instance saved
     ) => {
 
-      this.stopServer();
+      if (!keepView) {
+        this.stopServer();
+      }
 
       this.artistNamesService.learn(finalObject.images); // before the videos are shown with their tags
       this.sourceFolderService.watchedByRescanning = {}; // node tells again for the folders of this hub
@@ -798,7 +819,9 @@ export class HomeComponent implements OnInit, AfterViewInit {
       // Update history of opened files
       this.updateVhaFileHistory(pathToFile, finalObject.hubName);
 
-      this.folderViewNavigationPath = '';
+      if (!keepView) {
+        this.folderViewNavigationPath = '';
+      }
 
       this.manualTagsService.removeAllTags();
       this.manualTagsService.populateManualTagsService(finalObject.images);
@@ -1255,6 +1278,14 @@ export class HomeComponent implements OnInit, AfterViewInit {
    */
   public autosave(): void {
     if (this.isClosing || !this.appState.currentVhaFile || this.autosaveInFlight || this.demo) {
+      return;
+    }
+
+    if (this.viewerInstance) {
+      if (!this.viewerChangesWarned && (this.imageElementService.finalArrayNeedsSaving || this.autoTagsSaveService.needToSaveTags)) {
+        this.viewerChangesWarned = true; // once -- the next save of the main instance replaces them anyway
+        this.zone.run(() => this.modalService.openSnackbar(this.translate.instant('SETTINGS.viewerChangesLost'), 8000));
+      }
       return;
     }
 
