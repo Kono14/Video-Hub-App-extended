@@ -24,7 +24,6 @@
               "src/styles.scss"
             ],
             "scripts": [],
-            "webWorkerTsConfig": "tsconfig.worker.json",
             "aot": false,
             "vendorChunk": true,
             "extractLicenses": false,

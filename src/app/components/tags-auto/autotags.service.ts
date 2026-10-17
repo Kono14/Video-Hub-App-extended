@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import { AutoTagsSaveService } from './tags-save.service';
+import { ArtistNamesService } from './artist-names.service';
 
 import type { ImageElement } from '../../../../interfaces/final-object.interface';
 
@@ -17,65 +18,43 @@ export const autoFileTagsRegex = /[\p{L}\d]+/ug;
 @Injectable()
 export class AutoTagsService {
 
-  oneWordFreqMap: Map<string, number> = new Map();
-  twoWordFreqMap: Map<string, number> = new Map();
+  oneWordFreqMap: Map<string, number> = new Map(); // tags of one word: studios, channels, performers known by one name
+  twoWordFreqMap: Map<string, number> = new Map(); // tags of more words: names of performers
 
   onlyFileNames: string[] = [];         // array with just clean file names toLowerCase
 
-  minWordLength = 3; // minimum, inclusive 3 => 3 letters or more for a word to be considered
-  oneWordMinInstances = 2; // runs after 2-word-instances created
-  twoWordMinInstances = 2; // items show up if 3 or more exist
+  minFiles = 2; // a tag is listed when at least this many videos have it
 
   cachedHub: string;
 
   constructor(
+    public artistNamesService: ArtistNamesService,
     public autoTagsSaveService: AutoTagsSaveService
   ) { }
 
   /**
-   * Go through the whole process of generating the 1-word and 2-word arrays
+   * Count the automatic tags of all videos -- the same tags a single video shows (performers and studio),
+   * not every word of the file names
    * @param finalArray - ImageElement[] of all files from app
    */
   public generateAllTags(finalArray: ImageElement[], hubName: string): Promise<boolean> {
 
-    return new Promise((resolve, reject) => {
+    if (this.cachedHub !== hubName) {
 
-      if (this.cachedHub !== hubName) {
+      this.resetState();
 
-        this.resetState();
+      this.cachedHub = hubName;
 
-        this.cachedHub = hubName;
+      this.storeFinalArrayInMemory(finalArray);
 
-        this.storeFinalArrayInMemory(finalArray);
+      this.trimMap(this.oneWordFreqMap, this.minFiles);
+      this.trimMap(this.twoWordFreqMap, this.minFiles);
 
-        this.cleanOneWordFreqMap(); // only to have items Math.max(oneWordMinInstances, twoWordMinInstances)
+      this.loadAddTags();
+      this.loadRemoveTags();
+    }
 
-        this.getPotentialTwoWordMap(this.onlyFileNames, this.oneWordFreqMap).then((potentialTwoWordMap) => {
-
-          this.getTwoWordFreqMap(potentialTwoWordMap).then((twoWordFreqMap) => {
-
-            this.twoWordFreqMap = twoWordFreqMap;
-
-            this.cleanTwoWordMapBelowCutoff();
-            this.cleanOneWordMapUsingTwoWordMap();
-
-            this.trimMap(this.oneWordFreqMap, 5);
-            this.trimMap(this.twoWordFreqMap, 3);
-
-            this.loadAddTags();
-            this.loadRemoveTags();
-
-            resolve(true);
-          });
-
-        });
-
-      } else {
-        resolve(true);
-      }
-
-    });
-
+    return Promise.resolve(true);
   }
 
   /**
@@ -88,87 +67,22 @@ export class AutoTagsService {
   }
 
   /**
-   * Generate `onlyFileNames` which is string[] of just file names in lower case
-   * Calls method that populates the `wordMap`
+   * Generate `onlyFileNames` which is string[] of just file names in lower case,
+   * and count how many videos have each automatic tag
    * @param finalArray - the whole initial ImageElement[]
    */
   private storeFinalArrayInMemory(finalArray: ImageElement[]): void {
     finalArray.forEach((element) => {
-      const cleanedFileName: string = (element.cleanName.toLowerCase().match(autoFileTagsRegex) || []).join(' ');
-
-      this.onlyFileNames.push(cleanedFileName);
-      this.addString(cleanedFileName);
-    });
-  }
-
-  /**
-   * Add each word from the file name to the wordMap via the `addWord` method
-   * Ignore all words with 3 or fewer characters
-   * Strip out all parantheses, brackets, and a few other words
-   * @param filename
-   */
-  private addString(filename: string): void {
-    const wordArray = filename.split(' ');
-    wordArray.forEach(word => {
-      if (word.length >= this.minWordLength) {
-        this.addWord(word);
+      if (element.cleanName === '*FOLDER*') {
+        return;
       }
-    });
-  }
 
-  /**
-   * Populate the frequency map
-   * @param word
-   */
-  private addWord(word: string): void {
-    if (this.oneWordFreqMap.has(word)) {
-      this.oneWordFreqMap.set(word, this.oneWordFreqMap.get(word) + 1);
-    } else {
-      this.oneWordFreqMap.set(word, 1);
-    }
-  }
+      this.onlyFileNames.push((element.cleanName.toLowerCase().match(autoFileTagsRegex) || []).join(' '));
 
-  /**
-   * Remove all elements with 3 or fewer occurences
-   */
-  private cleanOneWordFreqMap(): void {
-    this.oneWordFreqMap.forEach((value, key) => {
-      if (value <= Math.max(this.twoWordMinInstances, this.oneWordMinInstances)) {
-        this.oneWordFreqMap.delete(key);
-      }
-    });
-  }
-
-  /**
-   * Remove any elements from the map below the cutoff
-   */
-  private cleanTwoWordMapBelowCutoff(): void {
-    this.twoWordFreqMap.forEach((val: number, key: string) => {
-      if (val <= this.twoWordMinInstances) {
-        this.twoWordFreqMap.delete(key);
-      }
-    });
-  }
-
-  /**
-   * clean up the one word map to not include anything that is in the list of two-word tags
-   */
-  private cleanOneWordMapUsingTwoWordMap(): void {
-
-    const allWordsFromTwoWordArray: string[] = [];
-
-    // fill in `allWordsFromTwoWordArray` based on what is currently in the `twoWordsFreqMap`
-    this.twoWordFreqMap.forEach((val: number, key: string) => {
-      const twoWords: string[] = key.split(' ');
-      twoWords.forEach((word: string) => {
-        allWordsFromTwoWordArray.push(word);
+      this.artistNamesService.tagsFor(element.cleanName).forEach((tag: string) => {
+        const map: Map<string, number> = tag.includes(' ') ? this.twoWordFreqMap : this.oneWordFreqMap;
+        map.set(tag, (map.get(tag) || 0) + 1);
       });
-    });
-
-    this.oneWordFreqMap.forEach((val: number, key: string) => {
-      if (allWordsFromTwoWordArray.includes(key)) {
-        this.oneWordFreqMap.delete(key);
-      }
     });
   }
 
@@ -315,67 +229,6 @@ export class AutoTagsService {
     } else {
       this.oneWordFreqMap.delete(tag);
     }
-  }
-
-  // ===============================================================================================
-  //                                        web worker section
-  // -----------------------------------------------------------------------------------------------
-
-  /**
-   * Outsource the CPU-intensive work to a web worker to prevent locking up the UI
-   * With 10,000 videos takes about 4 seconds
-   *
-   * return `potentialTwoWordMap` -- requires further cleaning
-   *
-   * @param onlyFileNames
-   * @param oneWordFreqMap
-   */
-  private getPotentialTwoWordMap(
-    onlyFileNames: string[],
-    oneWordFreqMap: Map<string, number>
-  ): Promise<Map<string, number>> {
-
-    return new Promise((resolve, reject) => {
-      // it is implied that `Worker` is supported
-      const worker = new Worker(new URL('./tags.worker', import.meta.url), { type: 'module' });
-
-      worker.onmessage = (message) => {
-        resolve(message.data);
-      };
-
-      worker.postMessage({
-        task: 1,
-        onlyFileNames: onlyFileNames,
-        oneWordFreqMap: oneWordFreqMap,
-      });
-
-    });
-
-  }
-
-  /**
-   * Outsource the CPU-intensive work to a web worker to prevent locking up the UI
-   * With 10,000 videos takes about 4 seconds
-   * performs `cleanTwoWordMap`
-   * @param potentialTwoWordMap
-   */
-  private getTwoWordFreqMap(potentialTwoWordMap: Map<string, number>): Promise<Map<string, number>> {
-
-    return new Promise((resolve, reject) => {
-      // it is implied that `Worker` is supported
-      const worker = new Worker(new URL('./tags.worker', import.meta.url), { type: 'module' });
-
-      worker.onmessage = (message) => {
-        resolve(message.data);
-      };
-
-      worker.postMessage({
-        task: 2,
-        potentialTwoWordMap: potentialTwoWordMap,
-        onlyFileNames: this.onlyFileNames,
-      });
-    });
-
   }
 
 }
