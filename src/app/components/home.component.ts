@@ -366,11 +366,10 @@ export class HomeComponent implements OnInit, AfterViewInit {
   @HostListener('document:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
 
-    if (event.ctrlKey && event.key === ' ' && this.settingsButtons['spacePlaysRandom'].toggled) {
-      const randomIndex: number = Math.floor(Math.random() * this.pipeSideEffectService.galleryShowing.length);
-      const video: ImageElement = this.pipeSideEffectService.galleryShowing[randomIndex];
-      const randomPlayStart: number = Math.floor(Math.random() * video.screens);
-      this.openVideo(video, randomPlayStart);
+    if (event.ctrlKey && event.key === ' ') {
+      // same as the `Play all` button: all videos of the current gallery in one player
+      event.preventDefault();
+      this.playAllInGallery();
 
     // .metaKey is for Mac `command` button
     } else if (event.ctrlKey === true || event.metaKey) {
@@ -1821,6 +1820,18 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Play all videos of the current gallery in one player (`Play all` button and Ctrl + Space)
+   */
+  playAllInGallery(): void {
+    (window as any).myElectron.sendToMain(
+      'please-create-playlist',
+      this.pipeSideEffectService.galleryShowing,
+      this.sourceFolderService.selectedSourceFolder,
+      this.appState.preferredVideoPlayer
+    );
+  }
+
+  /**
    * Handle custom shortcut action
    * summoned via `handleKeyboardEvent`
    * @param event - keyboard event
@@ -1984,13 +1995,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
       }
       this.toggleButtonOpposite('showTags');
     } else if (uniqueKey === 'playPlaylist') {
-      const execPath: string = this.appState.preferredVideoPlayer;
-      (window as any).myElectron.sendToMain(
-        'please-create-playlist',
-        this.pipeSideEffectService.galleryShowing,
-        this.sourceFolderService.selectedSourceFolder,
-        execPath
-      );
+      this.playAllInGallery();
     } else if (uniqueKey === 'sortOrder') {
       this.toggleButtonOpposite(uniqueKey);
       setTimeout(() => {

@@ -859,7 +859,7 @@ export const SettingsButtons: SettingsButtonsType = {
   },
   'spacePlaysRandom': {
     description: 'BUTTONS.spacePlaysRandomDescription',
-    hidden: false,
+    hidden: true, // Ctrl + Space now always plays all (see `playAllInGallery`), this switch does nothing
     moreInfo: 'BUTTONS.spacePlaysRandomMoreInfo',
     title: '',
     toggled: false
