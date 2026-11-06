@@ -349,7 +349,7 @@
     "hold": "按住",
     "makeLarger": "放大缩略图",
     "makeSmaller": "缩小缩略图",
-    "openRandom": "从当前图库结果中随机播放一段视频",
+    "openRandom": "在同一个播放器中播放当前图库结果的所有视频",
     "or": "或者",
     "quit": "关闭应用程序",
     "showAutoTags": "切换自动生成的标签视图",
