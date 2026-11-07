@@ -53,7 +53,8 @@
   color: variables.$gray-60;
   font-family: monospace;
   font-size: 11px;
-  margin: 0;
+  // leave room for the small arrow in the top-left corner (it sits over the sidebar), so it doesn't overlap the icons
+  margin: 22px 0 6px;
 
   .container-icon-total {
     display: inline-block;
