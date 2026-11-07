@@ -1,5 +1,8 @@
 {
   "BUTTONS": {
+    "addAllToPlaylist": "Add all to playlist",
+    "addAllToPlaylistDescription": "Add all current gallery videos to the MPC-HC playlist",
+    "addAllToPlaylistMoreInfo": "Queues the videos in the MPC-HC window that is already open, without playing them. Only works with MPC-HC as the preferred video player. Playlist will not include files inside folders if 'Show folders' is selected.",
     "addToFavorites": "add to favorites",
     "addToPlaylist": "add to playlist",
     "autoFileTagsDescription": "File name auto-generated tags",

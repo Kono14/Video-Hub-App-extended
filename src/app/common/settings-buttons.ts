@@ -43,6 +43,7 @@ export type SettingsButtonKey = 'autoFileTags'
  | 'muteClips'
  | 'openAtTimestamp'
  | 'playPlaylist'
+ | 'addAllToPlaylist'
  | 'randomizeFoldersScreenshots'
  | 'regex'
  | 'resetSettings'
@@ -169,6 +170,7 @@ export const SettingsButtonsGroups: SettingsButtonKey[][] = [
     'showOnlyFavorites',
     'showOnlyPlaylist',
     'playPlaylist',
+    'addAllToPlaylist',
   ],
   [ // 6 - Bottom tray -- hidden from ribbon via !== 6 in ribbon.component.html
     'showFreq',
@@ -607,6 +609,14 @@ export const SettingsButtons: SettingsButtonsType = {
     iconName: 'icon-video-blank',
     moreInfo: 'BUTTONS.playlistButtonMoreInfo',
     title: 'BUTTONS.playlistButton',
+    toggled: false
+  },
+  'addAllToPlaylist': {
+    description: 'BUTTONS.addAllToPlaylistDescription',
+    hidden: false,
+    iconName: 'icon-playlist-add',
+    moreInfo: 'BUTTONS.addAllToPlaylistMoreInfo',
+    title: 'BUTTONS.addAllToPlaylist',
     toggled: false
   },
   'randomizeFoldersScreenshots': {

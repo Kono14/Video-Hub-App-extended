@@ -9,7 +9,7 @@ const spawn = require('child_process').spawn;
 import { GLOBALS } from './main-globals';
 import { ImageElement, FinalObject, InputSources } from '../interfaces/final-object.interface';
 import { SettingsObject } from '../interfaces/settings-object.interface';
-import { createDotPlsFile, writeVhaFileToDisk } from './main-support';
+import { createDotPlsFile, splitPathsForCommandLines, writeVhaFileToDisk } from './main-support';
 import { replaceThumbnailWithNewImage } from './main-extract';
 import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNotInHub, rescanNow } from './main-extract-async';
 
@@ -121,6 +121,48 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
         event.sender.send('file-not-found');
       }
     });
+  });
+
+  /**
+   * Add all videos of the gallery to the playlist of MPC-HC -- the `Add all to playlist` button
+   * Same as `add-to-player-playlist` for many files: they go to the player in groups that fit on a command line.
+   * A running MPC-HC takes each group over and the new process ends; if MPC-HC had to start, the first
+   * process stays, so the next group is sent after a short wait at the latest.
+   */
+  ipc.on('please-add-all-to-player-playlist', (event, playlist: ImageElement[], sourceFolderMap: InputSources, execPath: string) => {
+    (async () => {
+      const wanted: string[] = playlist
+        .filter((element: ImageElement) => element.cleanName !== '*FOLDER*')
+        .map((element: ImageElement) => path.normalize(
+          path.join(sourceFolderMap[element.inputSource].path, element.partialPath, element.fileName)
+        ));
+
+      const present: boolean[] = await Promise.all(wanted.map((fullPath: string) => {
+        return fs.promises.access(fullPath, fs.constants.F_OK).then(() => true, () => false);
+      }));
+      const files: string[] = wanted.filter((fullPath: string, i: number) => present[i]);
+
+      if (files.length < wanted.length) {
+        event.sender.send('file-not-found'); // some videos are offline -- the others are still added
+      }
+
+      for (const group of splitPathsForCommandLines(files)) {
+        await new Promise<void>((resolve) => {
+          const player = spawn(path.normalize(execPath), ['/add', ...group], {
+            detached: true, // the player keeps running when this app closes
+            stdio: 'ignore',
+          });
+          const wait = setTimeout(resolve, 3000);
+          player.on('exit', () => { clearTimeout(wait); resolve(); });
+          player.on('error', (spawnError: any) => {
+            console.log('could not start the player', spawnError);
+            clearTimeout(wait);
+            resolve();
+          });
+          player.unref();
+        });
+      }
+    })();
   });
 
   /**

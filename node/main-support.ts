@@ -368,6 +368,34 @@ export function createDotPlsFile(savePath: string, playlist: ImageElement[], sou
 }
 
 /**
+ * Split file paths into groups that each fit on one command line (Windows allows about 32,000 characters)
+ * Every path counts with its quotes and the space before it. A path longer than the limit gets a group of its own.
+ * @param paths    -- full paths of the files
+ * @param maxChars -- room for the paths of one command line
+ */
+export function splitPathsForCommandLines(paths: string[], maxChars: number = 8000): string[][] {
+  const groups: string[][] = [];
+  let current: string[] = [];
+  let used = 0;
+
+  for (const onePath of paths) {
+    const needed: number = onePath.length + 3;
+    if (current.length && used + needed > maxChars) {
+      groups.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(onePath);
+    used += needed;
+  }
+
+  if (current.length) {
+    groups.push(current);
+  }
+  return groups;
+}
+
+/**
  * Clean up the displayed file name
  * (1) remove extension
  * (2) replace underscores with spaces            "_"   => " "

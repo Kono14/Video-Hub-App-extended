@@ -1832,6 +1832,21 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Add all videos of the current gallery to the MPC-HC playlist (`Add all to playlist` button)
+   */
+  addAllToPlayerPlaylist(): void {
+    if (!this.preferredPlayerIsMpcHc()) {
+      return; // only MPC-HC can queue files from the command line
+    }
+    (window as any).myElectron.sendToMain(
+      'please-add-all-to-player-playlist',
+      this.pipeSideEffectService.galleryShowing,
+      this.sourceFolderService.selectedSourceFolder,
+      this.appState.preferredVideoPlayer
+    );
+  }
+
+  /**
    * Handle custom shortcut action
    * summoned via `handleKeyboardEvent`
    * @param event - keyboard event
@@ -1996,6 +2011,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
       this.toggleButtonOpposite('showTags');
     } else if (uniqueKey === 'playPlaylist') {
       this.playAllInGallery();
+    } else if (uniqueKey === 'addAllToPlaylist') {
+      this.addAllToPlayerPlaylist();
     } else if (uniqueKey === 'sortOrder') {
       this.toggleButtonOpposite(uniqueKey);
       setTimeout(() => {

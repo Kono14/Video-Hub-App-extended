@@ -1,5 +1,8 @@
 {
   "BUTTONS": {
+    "addAllToPlaylist": "Alle zur Playlist hinzufügen",
+    "addAllToPlaylistDescription": "Alle Videos der aktuellen Galerie zur MPC-HC-Playlist hinzufügen",
+    "addAllToPlaylistMoreInfo": "Reiht die Videos in das bereits offene MPC-HC-Fenster ein, ohne sie abzuspielen. Funktioniert nur, wenn MPC-HC der bevorzugte Videoplayer ist. Dateien in Ordnern kommen nicht mit, solange „Ordner anzeigen“ aktiv ist.",
     "addToFavorites": "Zu Favoriten hinzufügen",
     "addToPlaylist": "Zur Wiedergabeliste hinzufügen",
     "autoFileTagsDescription": "Aktivieren Sie automatisch generierte Schlagwörter basierend auf den Namen der Videodateien",
