@@ -3,6 +3,8 @@ import { Pipe } from '@angular/core';
 
 import type { ImageElement } from '../../../interfaces/final-object.interface';
 
+import { splitOrTerms } from '../common/or-search';
+
 import Fuse from 'fuse.js';
 
 @Pipe({
@@ -39,7 +41,20 @@ export class FuzzySearchPipe implements PipeTransform {
         this.cachedFuse = new Fuse(finalArray, this.options);
       }
 
-      return this.cachedFuse.search(searchString).map((element) => element.item);
+      // `a OR b` finds the videos that match a or b; a part shorter than 3 letters is skipped, like a short search
+      const words: string[] = splitOrTerms(searchString).filter((word: string) => word.length >= 3);
+      if (words.length === 0) {
+        return finalArray;
+      }
+      if (words.length === 1) {
+        return this.cachedFuse.search(words[0]).map((element) => element.item);
+      }
+
+      const found = new Set<ImageElement>();
+      words.forEach((word: string) => {
+        this.cachedFuse.search(word).forEach((element) => found.add(element.item));
+      });
+      return Array.from(found);
     }
   }
 

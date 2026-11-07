@@ -3,6 +3,8 @@ import { Pipe } from '@angular/core';
 
 import type { ImageElement } from '../../../interfaces/final-object.interface';
 
+import { splitOrTerms } from '../common/or-search';
+
 type SearchType = 'folder' | 'file' | 'tag' | 'notes';
 
 @Pipe({
@@ -52,9 +54,8 @@ export class FileSearchPipe implements PipeTransform {
           return item.partialPath.startsWith(arrOfStrings[0]);
         }
 
-        let matchFound = 0;
-
-        arrOfStrings.forEach(element => {
+        // whether the video matches one search word (`item` is the video)
+        const matchesWord = (element: string): boolean => {
 
           let searchString = '';
           if (searchType === 'folder') {
@@ -72,21 +73,14 @@ export class FileSearchPipe implements PipeTransform {
             // "view folder" right-click action after another term was already there. It can never
             // match a single segment, so look for it in the whole path.
             if (term.includes('/')) {
-              if (item.partialPath.toLowerCase().includes(term)) {
-                matchFound++;
-              }
-              return;
+              return item.partialPath.toLowerCase().includes(term);
             }
 
             const segments = item.partialPath.split('/').filter(Boolean);
             const segmentMatches = (s: string) => strict ? s.toLowerCase() === term : s.toLowerCase().includes(term);
-            const isMatch = recursive
+            return recursive
               ? segments.some(segmentMatches)
               : segments.length > 0 && segmentMatches(segments[segments.length - 1]);
-            if (isMatch) {
-              matchFound++;
-            }
-            return;
 
           } else if (searchType === 'file') {
             searchString = item.fileName;
@@ -106,7 +100,13 @@ export class FileSearchPipe implements PipeTransform {
             }
           }
 
-          if (searchString.toLowerCase().indexOf(element.toLowerCase()) !== -1) {
+          return searchString.toLowerCase().indexOf(element.toLowerCase()) !== -1;
+        };
+
+        // a search word with `OR` in it (`kuzu OR alpha`) matches if any of its parts does
+        let matchFound = 0;
+        arrOfStrings.forEach(element => {
+          if (splitOrTerms(element).some(matchesWord)) {
             matchFound++;
           }
         });
