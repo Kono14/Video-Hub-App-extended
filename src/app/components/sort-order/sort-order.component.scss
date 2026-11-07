@@ -3,13 +3,19 @@
   overflow: hidden;
 }
 
+// fills the narrow sidebar (the sidebar has 6px padding on the left only); the opened list is as wide as the box
 .sort-dropdown {
-  height: 30px;
+  box-sizing: border-box;
   cursor: pointer;
+  font-size: 12px;
+  height: 30px;
   margin: 10px 0 0;
-  max-width: 168px;
-  min-width: 168px;
+  max-width: 100%;
+  min-width: 0;
   outline: none;
+  padding: 4px;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .sort-dropdown-dark-mode {
