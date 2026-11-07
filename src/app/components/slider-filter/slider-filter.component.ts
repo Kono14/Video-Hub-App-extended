@@ -28,7 +28,10 @@ export class SliderFilterComponent implements OnInit, OnDestroy {
   draggingLeft = false;
   draggingRight = false;
 
-  width = 167;
+  width = 100;
+
+  // left padding of the sidebar, the sliders start this far from the window edge
+  readonly sidebarPadding = 6;
 
   currentXleft = 0;
   currentXright: number = this.width;
@@ -60,13 +63,13 @@ export class SliderFilterComponent implements OnInit, OnDestroy {
   mouseIsMoving(event: DragEvent) {
     if (this.dragging === true) {
       if (this.draggingLeft === true) {
-        const suggested = this.updateNumber(event.clientX - 10);
+        const suggested = this.updateNumber(event.clientX - this.sidebarPadding);
         // -10 because draggable div is 10px away from window border
         if (suggested < this.currentXright) {
           this.currentXleft = suggested;
         }
       } else if (this.draggingRight === true) {
-        const suggested = this.updateNumber(event.clientX);
+        const suggested = this.updateNumber(event.clientX - this.sidebarPadding);
         if (suggested > this.currentXleft) {
           this.currentXright = suggested;
         }

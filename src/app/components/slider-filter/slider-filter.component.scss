@@ -9,7 +9,7 @@
 }
 
 .slider-back-track {
-  min-width: 167px;
+  min-width: 100px;
 }
 
 .slider-back-track,
@@ -31,7 +31,7 @@
 .right-side {
   background: variables.$pretty-blue;
   border: 1px solid variables.$gray-60;
-  max-width: 168px;
+  max-width: 101px;
   z-index: 2;
 }
 
@@ -89,7 +89,7 @@
 .maxLabel {
   color: variables.$gray-50;
   float: right;
-  font-size: 15px;
+  font-size: 12px;
   margin-top: 30px;
   transform: translate(-2px, 4px);
 }

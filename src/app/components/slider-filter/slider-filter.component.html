@@ -48,8 +48,8 @@
   <span
     class="left-label"
     [ngStyle]="{
-      left: (currentXleft < 35) ? '3px' : 'unset',
-      right: (currentXleft < 35) ? 'unset' : 172 - currentXleft + 'px'
+      left: (currentXleft < width * 0.21) ? '3px' : 'unset',
+      right: (currentXleft < width * 0.21) ? 'unset' : width + 5 - currentXleft + 'px'
     }"
   >
     {{ convertToIndex(currentXleft) | wrapperPipe : labelFormatPipe() }}
@@ -60,8 +60,8 @@
   <span
     class="right-label"
     [ngStyle]="{
-      right: (currentXright > 140) ? '3px' : 'unset',
-      left: (currentXright > 140) ? 'unset' : currentXright + 'px'
+      right: (currentXright > width * 0.84) ? '3px' : 'unset',
+      left: (currentXright > width * 0.84) ? 'unset' : currentXright + 'px'
     }"
   >
     {{ convertToIndex(currentXright) | wrapperPipe : labelFormatPipe() }}

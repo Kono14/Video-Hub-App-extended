@@ -19,7 +19,7 @@
       (keydown.Tab)="handleTabPress($event, filter.uniqueKey === 'tagIntersection', j, filter.string)"
       (ngModelChange)="handleInputChange($event, filter.uniqueKey === 'tagIntersection')"
       [ngStyle]="{ color: settingsButtons().darkMode.toggled ? 'white' : 'black' }"
-      class="filter-general input-filter"
+      class="filter-general input-filter sidebar-input"
       placeholder="{{ filter.placeholder | translate }}"
       type="text"
     >

@@ -21,6 +21,12 @@
   }
 }
 
+// the narrow sidebar: smaller text, less indent for the icon
+.input-filter.sidebar-input {
+  font-size: 12px;
+  padding: 5px 4px 0 16px;
+}
+
 .player-args-input {
   padding-left: 5px;
   width: 342px;
