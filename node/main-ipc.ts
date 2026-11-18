@@ -9,7 +9,7 @@ const spawn = require('child_process').spawn;
 import { GLOBALS } from './main-globals';
 import { ImageElement, FinalObject, InputSources } from '../interfaces/final-object.interface';
 import { SettingsObject } from '../interfaces/settings-object.interface';
-import { createDotPlsFile, splitPathsForCommandLines, writeVhaFileToDisk } from './main-support';
+import { buildMacOpenArgs, createDotPlsFile, resolveMacPlayerApp, splitPathsForCommandLines, writeVhaFileToDisk } from './main-support';
 import { replaceThumbnailWithNewImage } from './main-extract';
 import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNotInHub, rescanNow } from './main-extract-async';
 
@@ -21,6 +21,28 @@ import { closeWatcher, startWatcher, extractAnyMissingThumbs, removeThumbnailsNo
  * @param systemMessages
  */
 export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
+
+  /**
+   * macOS only: hand files to a player app with `open -a` -- resolves when `open` is done (or after 3 seconds at the latest)
+   * `open` is the only way: VLC has no AppleScript and ignores `--playlist-enqueue` while it runs.
+   * Depending on VLC's own setting, the first file may start to play at once.
+   */
+  function openWithMacApp(playerApp: string, files: string[]): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const opener = spawn('open', buildMacOpenArgs(playerApp, files), {
+        detached: true,
+        stdio: 'ignore',
+      });
+      const wait = setTimeout(resolve, 3000);
+      opener.on('exit', () => { clearTimeout(wait); resolve(); });
+      opener.on('error', (spawnError: any) => {
+        console.log('could not start `open`', spawnError);
+        clearTimeout(wait);
+        resolve();
+      });
+      opener.unref();
+    });
+  }
 
   /**
    * In the viewer instance, refuse what would change the hub, the videos or their previews -- and say why
@@ -108,6 +130,15 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
   ipc.on('add-to-player-playlist', (event, executablePath: string, fullFilePath: string) => {
     fs.access(fullFilePath, fs.constants.F_OK, (err: any) => {
       if (!err) {
+        if (process.platform === 'darwin') {
+          const playerApp: string | null = resolveMacPlayerApp(executablePath);
+          if (playerApp) {
+            openWithMacApp(playerApp, [path.normalize(fullFilePath)]);
+          } else {
+            console.log('no player app found to add the file to');
+          }
+          return;
+        }
         // arguments as a list rather than one command line -- file names may contain `&`, `%` or quotes
         const player = spawn(path.normalize(executablePath), ['/add', path.normalize(fullFilePath)], {
           detached: true, // the player keeps running when this app closes
@@ -144,6 +175,18 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
 
       if (files.length < wanted.length) {
         event.sender.send('file-not-found'); // some videos are offline -- the others are still added
+      }
+
+      if (process.platform === 'darwin') {
+        const playerApp: string | null = resolveMacPlayerApp(execPath);
+        if (!playerApp) {
+          console.log('no player app found to add the files to');
+          return;
+        }
+        for (const group of splitPathsForCommandLines(files, 200000)) {
+          await openWithMacApp(playerApp, group);
+        }
+        return;
       }
 
       for (const group of splitPathsForCommandLines(files)) {
@@ -231,6 +274,16 @@ export function setUpIpcMessages(ipc, win, pathToAppData, systemMessages) {
 
     if (cleanPlaylist.length) {
       createDotPlsFile(savePath, cleanPlaylist, sourceFolderMap, () => {
+
+        if (process.platform === 'darwin') {
+          // `shell.openPath` would hand the `.pls` to Apple Music, and an `.app` bundle cannot be run with `exec`
+          const playerApp: string | null = resolveMacPlayerApp(execPath);
+          if (playerApp) {
+            openWithMacApp(playerApp, [path.normalize(savePath)]);
+            return;
+          }
+          // no app found: carry on as before (`shell.openPath` without a preferred player, `exec` with one)
+        }
 
         if (execPath) { // if `preferredVideoPlayer` is sent
           const cmdline: string = `"${path.normalize(execPath)}" "${path.normalize(savePath)}"`;

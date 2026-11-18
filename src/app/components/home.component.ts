@@ -1446,6 +1446,23 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Whether files can be queued from the command line: MPC-HC anywhere, and on a Mac VLC (or any `.app`) via `open -a`
+   * -- on a Mac also without a preferred player, because the main process then falls back to VLC
+   * `window.process` comes from `preload.js`, the copy of `GLOBALS` in this bundle is not updated by `main.ts`
+   */
+  playerCanQueue(): boolean {
+    if (this.preferredPlayerIsMpcHc()) {
+      return true;
+    }
+    const onMac: boolean = this.macVersion || (window as any).process?.platform === 'darwin';
+    if (!onMac) {
+      return false;
+    }
+    const player: string = this.appState.preferredVideoPlayer || '';
+    return player === '' || /\.app(\/|$)/i.test(player);
+  }
+
+  /**
    * handle right-click and `Add to MPC-HC playlist` -- same as that entry in the File Explorer menu
    */
   addToPlayerPlaylist(): void {
@@ -1835,8 +1852,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
    * Add all videos of the current gallery to the MPC-HC playlist (`Add all to playlist` button)
    */
   addAllToPlayerPlaylist(): void {
-    if (!this.preferredPlayerIsMpcHc()) {
-      return; // only MPC-HC can queue files from the command line
+    if (!this.playerCanQueue()) {
+      return; // only MPC-HC (and VLC on a Mac) can queue files from the command line
     }
     (window as any).myElectron.sendToMain(
       'please-add-all-to-player-playlist',
@@ -2428,8 +2445,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
     const howFarFromBottom: number = winHeight - clientY;
 
     // the `Add to MPC-HC playlist` entry makes the menu one line taller and, with its long label, wider
-    const menuWidth: number =  this.preferredPlayerIsMpcHc() ? 210 : 150;
-    const menuHeight: number = this.preferredPlayerIsMpcHc() ? 240 : 210;
+    const menuWidth: number =  this.playerCanQueue() ? 210 : 150;
+    const menuHeight: number = this.playerCanQueue() ? 240 : 210;
 
     this.rightClickPosition.x = (howFarFromRight < menuWidth)   ? clientX - menuWidth  + (howFarFromRight)  : clientX;
     this.rightClickPosition.y = (howFarFromBottom < menuHeight) ? clientY - menuHeight + (howFarFromBottom) : clientY;

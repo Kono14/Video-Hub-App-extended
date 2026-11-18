@@ -92,12 +92,12 @@
     @rightClickAnimation
   >
     <ul @rightClickContentAnimation>
-    @if (preferredPlayerIsMpcHc()) {
+    @if (playerCanQueue()) {
       <li
         (click)="addToPlayerPlaylist()"
         [ngClass]="{ 'right-click-disabled': !sourceFolderService.sourceFolderConnected[currentRightClickedItem.inputSource] }"
       >
-                                                                {{ 'RIGHTCLICK.addToPlaylist' | translate }}</li>
+                                                                {{ (preferredPlayerIsMpcHc() ? 'RIGHTCLICK.addToPlaylist' : 'RIGHTCLICK.addToPlaylistAny') | translate }}</li>
     }
       <li
         (click)="renamingNow = true"

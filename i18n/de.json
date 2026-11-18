@@ -257,6 +257,7 @@
   },
   "RIGHTCLICK": {
     "addToPlaylist": "Zur MPC-HC-Playlist hinzufügen",
+    "addToPlaylistAny": "Zur Wiedergabeliste hinzufügen",
     "cancelRename": "Umbenennung abbrechen",
     "delete": "Löschen",
     "errorFileNameExists": "Es existiert eine Datei mit diesem Dateinamen",

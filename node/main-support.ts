@@ -396,6 +396,42 @@ export function splitPathsForCommandLines(paths: string[], maxChars: number = 80
 }
 
 /**
+ * macOS only: find the player app (`.app` bundle) that gets the playlist or the files
+ * - the preferred player is inside a bundle (`/Applications/VLC.app`, with or without trailing slash,
+ *   or the executable inside it, `/Applications/VLC.app/Contents/MacOS/VLC`) => that bundle
+ * - no preferred player => VLC, if it is installed
+ * - anything else (e.g. a plain executable outside a bundle) => `null`
+ * @param preferredPlayer -- `preferredVideoPlayer` setting
+ * @param exists          -- check for a path on disk (replaceable for tests)
+ */
+export function resolveMacPlayerApp(
+  preferredPlayer: string,
+  exists: (checkPath: string) => boolean = (checkPath: string) => fs.existsSync(checkPath)
+): string | null {
+  const preferred: string = (preferredPlayer || '').trim();
+
+  if (preferred === '') {
+    const vlc = '/Applications/VLC.app';
+    return exists(vlc) ? vlc : null;
+  }
+
+  const bundle = /^(.*?\.app)(\/.*)?$/i.exec(preferred);
+  return bundle ? bundle[1] : null;
+}
+
+/**
+ * macOS only: arguments for `open` to open files (or a `.pls` playlist) with a particular app
+ * Meant for `spawn('open', args)` -- a list, not a command line, because file names may contain `&`, `%` or quotes
+ * Known limit: VLC has no AppleScript and ignores `--playlist-enqueue` while it runs, so `open -a` is the only way;
+ * depending on VLC's own setting the first file starts to play at once
+ * @param app   -- the `.app` bundle
+ * @param files -- full paths
+ */
+export function buildMacOpenArgs(app: string, files: string[]): string[] {
+  return ['-a', app, ...files];
+}
+
+/**
  * Clean up the displayed file name
  * (1) remove extension
  * (2) replace underscores with spaces            "_"   => " "
